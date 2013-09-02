@@ -1,0 +1,34 @@
+Source: python-troveclient
+Section: python
+Priority: extra
+Maintainer: PKG OpenStack <openstack-devel@lists.alioth.debian.org>
+Uploaders: Julien Danjou <acid@debian.org>,
+           Thomas Goirand <zigo@debian.org>,
+           Mehdi Abaakouk <sileht@sileht.net>
+Build-Depends: debhelper (>= 9), python-pbr, openstack-pkg-tools, python-all (>= 2.6.6-3~)
+Build-Depends-Indep: python-httplib2,
+                     python-lxml,
+                     python-mock,
+                     python-prettytable,
+                     python-sphinx,
+                     python-testtools (>= 0.9.32),
+                     testrepository (>= 0.0.17)
+Standards-Version: 3.9.4
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/python-troveclient.git;a=summary
+Vcs-Git: git://anonscm.debian.org/openstack/python-troveclient.git
+Homepage: http://www.openstack.org
+
+Package: python-troveclient
+Architecture: all
+Pre-Depends: dpkg (>= 1.15.6~)
+Depends: python-httplib2,
+         python-lxml,
+         python-prettytable,
+         ${misc:Depends},
+         ${python:Depends}
+Description: Client for OpenStack Database as a Service
+ Trove is Database as a Service for OpenStack. It's designed to run entirely on
+ OpenStack, with the goal of allowing users to quickly and easily utilize the
+ features of a relational database without the burden of handling complex
+ administrative tasks. Cloud users and database administrators can provision
+ and manage multiple database instances as needed.

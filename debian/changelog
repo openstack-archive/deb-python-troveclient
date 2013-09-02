@@ -1,0 +1,5 @@
+python-troveclient (0.1.4-1) unstable; urgency=low
+
+  * Initial release (Closes: #721604).
+
+ -- Thomas Goirand <zigo@debian.org>  Fri, 30 Nov 2012 17:15:12 +0000
