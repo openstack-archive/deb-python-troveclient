@@ -1,4 +1,4 @@
-# Copyright (c) 2011 OpenStack, LLC.
+# Copyright (c) 2011 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -76,3 +76,7 @@ class Hosts(base.ManagerWithFind):
                 return host.name
         except AttributeError:
             return host
+
+    # Appease the abc gods
+    def list(self):
+        pass

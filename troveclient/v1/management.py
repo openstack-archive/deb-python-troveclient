@@ -1,4 +1,4 @@
-# Copyright (c) 2011 OpenStack, LLC.
+# Copyright (c) 2011 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -19,7 +19,8 @@ import urlparse
 from troveclient.common import check_for_exceptions
 from troveclient.common import limit_url
 from troveclient.common import Paginated
-from troveclient.instances import Instance
+from troveclient.v1.instances import Instance
+from troveclient.v1.flavors import Flavor
 
 
 class RootHistory(base.Resource):
@@ -33,6 +34,10 @@ class Management(base.ManagerWithFind):
     Manage :class:`Instances` resources.
     """
     resource_class = Instance
+
+    # Appease the abc gods
+    def list(self):
+        pass
 
     def _list(self, url, response_key, limit=None, marker=None):
         resp, body = self.api.client.get(limit_url(url, limit, marker))
@@ -134,3 +139,45 @@ class Management(base.ManagerWithFind):
         """
         body = {'reset-task-status': {}}
         self._action(instance_id, body)
+
+
+class MgmtFlavors(base.ManagerWithFind):
+    """
+    Manage :class:`Flavor` resources.
+    """
+    resource_class = Flavor
+
+    def __repr__(self):
+        return "<Flavors Manager at %s>" % id(self)
+
+    # Appease the abc gods
+    def list(self):
+        pass
+
+    def create(self, name, ram, disk, vcpus,
+               flavorid="auto", ephemeral=None, swap=None, rxtx_factor=None,
+               service_type=None):
+        """
+        Create a new flavor.
+        """
+        body = {"flavor": {
+            "flavor_id": flavorid,
+            "name": name,
+            "ram": ram,
+            "disk": disk,
+            "vcpu": vcpus,
+            "ephemeral": 0,
+            "swap": 0,
+            "rxtx_factor": "1.0",
+            "is_public": "True"
+        }}
+        if ephemeral:
+            body["flavor"]["ephemeral"] = ephemeral
+        if swap:
+            body["flavor"]["swap"] = swap
+        if rxtx_factor:
+            body["flavor"]["rxtx_factor"] = rxtx_factor
+        if service_type:
+            body["flavor"]["service_type"] = service_type
+
+        return self._create("/mgmt/flavors", body, "flavor")

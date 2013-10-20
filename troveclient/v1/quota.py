@@ -1,4 +1,4 @@
-# Copyright (c) 2011 OpenStack, LLC.
+# Copyright (c) 2011 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -49,3 +49,7 @@ class Quotas(base.ManagerWithFind):
         if 'quotas' not in body:
             raise Exception("Missing key value 'quotas' in response body.")
         return body['quotas']
+
+    # Appease the abc gods
+    def list(self):
+        pass

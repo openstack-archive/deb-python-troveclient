@@ -1,4 +1,4 @@
-# Copyright (c) 2011 OpenStack, LLC.
+# Copyright (c) 2011 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -14,7 +14,7 @@
 #    under the License.
 
 from troveclient import base
-from troveclient import databases
+from troveclient.v1 import databases
 from troveclient.common import check_for_exceptions
 from troveclient.common import limit_url
 from troveclient.common import Paginated
@@ -111,7 +111,8 @@ class Users(base.ManagerWithFind):
         instance_id = base.getid(instance)
         user = quote_user_host(username, hostname)
         url = "/instances/%(instance_id)s/users/%(user)s/databases"
-        resp, body = self.api.client.get(url % locals())
+        local_vars = locals()
+        resp, body = self.api.client.get(url % local_vars)
         check_for_exceptions(resp, body)
         if not body:
             raise Exception("Call to %s did not return to a body" % url)
@@ -123,7 +124,8 @@ class Users(base.ManagerWithFind):
         user = quote_user_host(username, hostname)
         url = "/instances/%(instance_id)s/users/%(user)s/databases"
         dbs = {'databases': [{'name': db} for db in databases]}
-        resp, body = self.api.client.put(url % locals(), body=dbs)
+        local_vars = locals()
+        resp, body = self.api.client.put(url % local_vars, body=dbs)
         check_for_exceptions(resp, body)
 
     def revoke(self, instance, username, database, hostname=None):
@@ -132,7 +134,8 @@ class Users(base.ManagerWithFind):
         user = quote_user_host(username, hostname)
         url = ("/instances/%(instance_id)s/users/%(user)s/"
                "databases/%(database)s")
-        resp, body = self.api.client.delete(url % locals())
+        local_vars = locals()
+        resp, body = self.api.client.delete(url % local_vars)
         check_for_exceptions(resp, body)
 
     def change_passwords(self, instance, users):

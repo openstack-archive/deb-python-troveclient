@@ -1,4 +1,4 @@
-# Copyright (c) 2011 OpenStack, LLC.
+# Copyright (c) 2011 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -57,6 +57,10 @@ class Accounts(base.ManagerWithFind):
 
         acct_name = self._get_account_name(account)
         return self._list("/mgmt/accounts/%s" % acct_name, 'account')
+
+    # Appease the abc gods
+    def list(self):
+        pass
 
     @staticmethod
     def _get_account_name(account):

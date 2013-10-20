@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#    Copyright 2011 OpenStack LLC
+#    Copyright 2011 OpenStack Foundation
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -25,27 +25,27 @@ import sys
 # If ../trove/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
-                                   os.pardir,
-                                   os.pardir))
+                                                os.pardir,
+                                                os.pardir))
 if os.path.exists(os.path.join(possible_topdir, 'troveclient',
                                '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-
-from troveclient import common
+from troveclient.compat import common
 
 
 class InstanceCommands(common.AuthedCommandsBase):
     """Commands to perform various instances operations and actions"""
 
     params = [
-              'flavor',
-              'id',
-              'limit',
-              'marker',
-              'name',
-              'size',
-              'backup'
+        'flavor',
+        'id',
+        'limit',
+        'marker',
+        'name',
+        'size',
+        'backup',
+        'availability_zone'
     ]
 
     def create(self):
@@ -58,7 +58,8 @@ class InstanceCommands(common.AuthedCommandsBase):
         if self.backup:
             restorePoint = {"backupRef": self.backup}
         self._pretty_print(self.dbaas.instances.create, self.name,
-                           self.flavor, volume, restorePoint=restorePoint)
+                           self.flavor, volume, restorePoint=restorePoint,
+                           availability_zone=self.availability_zone)
 
     def delete(self):
         """Delete the specified instance"""
@@ -87,23 +88,18 @@ class InstanceCommands(common.AuthedCommandsBase):
         """Resize an instance volume"""
         self._require('id', 'size')
         self._pretty_print(self.dbaas.instances.resize_volume, self.id,
-                          self.size)
+                           self.size)
 
     def resize_instance(self):
         """Resize an instance flavor"""
         self._require('id', 'flavor')
         self._pretty_print(self.dbaas.instances.resize_instance, self.id,
-                          self.flavor)
+                           self.flavor)
 
     def restart(self):
         """Restart the database"""
         self._require('id')
         self._pretty_print(self.dbaas.instances.restart, self.id)
-
-    def reset_password(self):
-        """Reset the root user Password"""
-        self._require('id')
-        self._pretty_print(self.dbaas.instances.reset_password, self.id)
 
 
 class FlavorsCommands(common.AuthedCommandsBase):
@@ -120,11 +116,11 @@ class DatabaseCommands(common.AuthedCommandsBase):
     """Database CRUD operations on an instance"""
 
     params = [
-              'name',
-              'id',
-              'limit',
-              'marker',
-             ]
+        'name',
+        'id',
+        'limit',
+        'marker',
+    ]
 
     def create(self):
         """Create a database"""
@@ -146,16 +142,16 @@ class DatabaseCommands(common.AuthedCommandsBase):
 class UserCommands(common.AuthedCommandsBase):
     """User CRUD operations on an instance"""
     params = [
-              'id',
-              'database',
-              'databases',
-              'hostname',
-              'name',
-              'password',
-              'new_name',
-              'new_host',
-              'new_password',
-             ]
+        'id',
+        'database',
+        'databases',
+        'hostname',
+        'name',
+        'password',
+        'new_name',
+        'new_host',
+        'new_password',
+    ]
 
     def create(self):
         """Create a user in instance, with access to one or more databases"""
@@ -231,8 +227,8 @@ class RootCommands(common.AuthedCommandsBase):
     """Root user related operations on an instance"""
 
     params = [
-              'id',
-             ]
+        'id',
+    ]
 
     def create(self):
         """Enable the instance's root user."""
@@ -253,8 +249,8 @@ class VersionCommands(common.AuthedCommandsBase):
     """List available versions"""
 
     params = [
-              'url',
-             ]
+        'url',
+    ]
 
     def list(self):
         """List all the supported versions"""
@@ -298,13 +294,14 @@ class BackupsCommands(common.AuthedCommandsBase):
 class SecurityGroupCommands(common.AuthedCommandsBase):
     """Commands to list and show Security Groups For an Instance and """
     """create and delete security group rules for them. """
-    params = ['id',
-              'secgroup_id',
-              'protocol',
-              'from_port',
-              'to_port',
-              'cidr'
-              ]
+    params = [
+        'id',
+        'secgroup_id',
+        'protocol',
+        'from_port',
+        'to_port',
+        'cidr'
+    ]
 
     def get(self):
         """Get a security group associated with an instance."""
@@ -329,25 +326,27 @@ class SecurityGroupCommands(common.AuthedCommandsBase):
         self.dbaas.security_group_rules.delete(self.id)
 
 
-COMMANDS = {'auth': common.Auth,
-            'instance': InstanceCommands,
-            'flavor': FlavorsCommands,
-            'database': DatabaseCommands,
-            'limit': LimitsCommands,
-            'backup': BackupsCommands,
-            'user': UserCommands,
-            'root': RootCommands,
-            'version': VersionCommands,
-            'secgroup': SecurityGroupCommands,
-            }
+COMMANDS = {
+    'auth': common.Auth,
+    'instance': InstanceCommands,
+    'flavor': FlavorsCommands,
+    'database': DatabaseCommands,
+    'limit': LimitsCommands,
+    'backup': BackupsCommands,
+    'user': UserCommands,
+    'root': RootCommands,
+    'version': VersionCommands,
+    'secgroup': SecurityGroupCommands,
+}
 
 
 def main():
     # Parse arguments
+    import pdb
     load_file = True
     for index, arg in enumerate(sys.argv):
         if (arg == "auth" and len(sys.argv) > (index + 1)
-            and sys.argv[index + 1] == "login"):
+                and sys.argv[index + 1] == "login"):
             load_file = False
 
     oparser = common.CliOptions.create_optparser(load_file)

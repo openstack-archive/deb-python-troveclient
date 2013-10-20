@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from troveclient import exceptions
+from troveclient.compat import exceptions
 
 
 def get_authenticator_cls(cls_or_name):

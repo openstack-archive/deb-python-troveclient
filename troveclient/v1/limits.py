@@ -1,4 +1,4 @@
-# Copyright (c) 2013 OpenStack, LLC.
+# Copyright (c) 2013 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -35,7 +35,7 @@ class Limits(base.ManagerWithFind):
     def _list(self, url, response_key):
         resp, body = self.api.client.get(url)
 
-        if resp is None or resp.status != 200:
+        if resp is None or resp.status_code != 200:
             raise exceptions.from_response(resp, body)
 
         if not body:

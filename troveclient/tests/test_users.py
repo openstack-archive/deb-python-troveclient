@@ -1,7 +1,7 @@
 from testtools import TestCase
 from mock import Mock
 
-from troveclient import users
+from troveclient.v1 import users
 from troveclient import base
 
 """
@@ -10,7 +10,6 @@ Unit tests for users.py
 
 
 class UserTest(TestCase):
-
     def setUp(self):
         super(UserTest, self).setUp()
         self.orig__init = users.User.__init__
@@ -27,7 +26,6 @@ class UserTest(TestCase):
 
 
 class UsersTest(TestCase):
-
     def setUp(self):
         super(UsersTest, self).setUp()
         self.orig__init = users.Users.__init__
@@ -58,15 +56,16 @@ class UsersTest(TestCase):
 
     def _build_fake_user(self, name, hostname=None, password=None,
                          databases=None):
-        return {'name': name,
-                'password': password if password else 'password',
-                'host': hostname,
-                'databases': databases if databases else [],
-               }
+        return {
+            'name': name,
+            'password': password if password else 'password',
+            'host': hostname,
+            'databases': databases if databases else [],
+        }
 
     def test_create(self):
         self.users.api.client.post = self._get_mock_method()
-        self._resp.status = 200
+        self._resp.status_code = 200
         user = self._build_fake_user('user1')
 
         self.users.create(23, [user])
@@ -88,15 +87,15 @@ class UsersTest(TestCase):
 
         # Make sure that response of 400 is recognized as an error.
         user['host'] = '%'
-        self._resp.status = 400
+        self._resp.status_code = 400
         self.assertRaises(Exception, self.users.create, 12, [user])
 
     def test_delete(self):
         self.users.api.client.delete = self._get_mock_method()
-        self._resp.status = 200
+        self._resp.status_code = 200
         self.users.delete(27, 'user1')
         self.assertEqual('/instances/27/users/user1', self._url)
-        self._resp.status = 400
+        self._resp.status_code = 400
         self.assertRaises(Exception, self.users.delete, 34, 'user1')
 
     def test__list(self):
@@ -110,7 +109,7 @@ class UsersTest(TestCase):
         body.__getitem__ = Mock(return_value=["test-value"])
 
         resp = Mock()
-        resp.status = 200
+        resp.status_code = 200
         self.users.resource_class = Mock(side_effect=side_effect_func)
         self.users.api.client.get = Mock(return_value=(resp, body))
         self.assertEqual(["test-value"], self.users._list('url', key).items)

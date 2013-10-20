@@ -1,4 +1,4 @@
-# Copyright (c) 2011 OpenStack, LLC.
+# Copyright (c) 2011 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -15,7 +15,7 @@
 
 from troveclient import base
 
-from troveclient import users
+from troveclient.v1 import users
 from troveclient.common import check_for_exceptions
 
 
@@ -40,4 +40,8 @@ class Root(base.ManagerWithFind):
         False otherwise"""
         resp, body = self.api.client.get(self.url % instance_id)
         check_for_exceptions(resp, body)
-        return body['rootEnabled']
+        return self.resource_class(self, body, loaded=True)
+
+    # Appease the abc gods
+    def list(self):
+        pass
