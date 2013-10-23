@@ -7,10 +7,9 @@ Copyright: 2012 Thomas Goirand <zigo@debian.org>
 License: Apache-2
 
 Files: *
-Copyright: (c) 2012-2013, OpenStack LLC & OpenStack fundation
-           (c) 2013, Hewlett-Packard Development Company, L.P.
+Copyright: (c) 2011-2013, OpenStack LLC, OpenStack foundation
+           (c) 2012-2013, Hewlett-Packard Development Company, L.P.
            (c) 2012-2013, Rackspace
-           (c) 2010, Jacob Kaplan-Moss
 License: Apache-2
 
 License: Apache-2
