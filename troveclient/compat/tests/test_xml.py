@@ -1,10 +1,11 @@
 from testtools import TestCase
 from lxml import etree
-from troveclient import xml
+#from troveclient import xml
 
 
-class XmlTest(TestCase):
-
+# Killing this until xml support is brought back.
+#class XmlTest(TestCase):
+class XmlTest(object):
     ELEMENT = '''
         <instances>
             <instance>
@@ -18,8 +19,9 @@ class XmlTest(TestCase):
     '''
     ROOT = etree.fromstring(ELEMENT)
 
-    JSON = {'instances':
-            {'instances': ['1', '2', '3']}, 'dummy': {'dict': True}}
+    JSON = {'instances': {
+        'instances': ['1', '2', '3']}, 'dummy': {'dict': True}
+    }
 
     def test_element_ancestors_match_list(self):
         # Test normal operation:
@@ -48,8 +50,8 @@ class XmlTest(TestCase):
             '''
         rt = etree.fromstring(ele)
 
-        self.assertEqual(None, xml.populate_element_from_dict(rt,
-            {'size': None}))
+        self.assertEqual(None,
+                         xml.populate_element_from_dict(rt, {'size': None}))
 
     def test_element_must_be_list(self):
         # Test for when name isn't in the dictionary
@@ -151,7 +153,7 @@ class XmlTest(TestCase):
         # Test creating when name is not in REQUEST_AS_LIST
         element = xml.create_root_xml_element("root", {"root": "value"})
         exp = '<root xmlns="http://docs.openstack.org/database/api/v1.0" ' \
-            'root="value"/>'
+              'root="value"/>'
         self.assertEqual(exp, etree.tostring(element))
 
         # Test creating when name is in REQUEST_AS_LIST
@@ -164,7 +166,7 @@ class XmlTest(TestCase):
         element = xml.create_root_xml_element("root", {"root": 5})
         xml.create_subelement(element, "subelement", {"subelement": "value"})
         exp = '<root xmlns="http://docs.openstack.org/database/api/v1.0" ' \
-            'root="5"><subelement subelement="value"/></root>'
+              'root="5"><subelement subelement="value"/></root>'
         self.assertEqual(exp, etree.tostring(element))
 
         # Test creating a subelement as a list
@@ -172,8 +174,8 @@ class XmlTest(TestCase):
                                               {"root": {"value": "nested"}})
         xml.create_subelement(element, "subelement", [{"subelement": "value"}])
         exp = '<root xmlns="http://docs.openstack.org/database/api/v1.0">' \
-            '<root value="nested"/><subelement><subelement subelement=' \
-            '"value"/></subelement></root>'
+              '<root value="nested"/><subelement><subelement subelement=' \
+              '"value"/></subelement></root>'
         self.assertEqual(exp, etree.tostring(element))
 
         # Test creating a subelement as a string (should raise TypeError)
@@ -188,7 +190,7 @@ class XmlTest(TestCase):
         TYPE_MAP = {
             "Int": int,
             "Bool": bool
-            }
+        }
         #Is a string True
         self.assertEqual(True, xml.modify_response_types('True', TYPE_MAP))
 
@@ -209,8 +211,8 @@ class XmlTest(TestCase):
         from troveclient import exceptions
 
         client = xml.TroveXmlClient("user", "password", "tenant",
-                                       "auth_url", "service_name",
-                                       auth_strategy="fake")
+                                    "auth_url", "service_name",
+                                    auth_strategy="fake")
         request = {'headers': {}}
 
         # Test morph_request, no body
@@ -222,7 +224,7 @@ class XmlTest(TestCase):
         request['body'] = {'root': {'test': 'test'}}
         client.morph_request(request)
         body = '<root xmlns="http://docs.openstack.org/database/api/v1.0" ' \
-            'test="test"/>\n'
+               'test="test"/>\n'
         exp = {'body': body,
                'headers': {'Content-Type': 'application/xml',
                            'Accept': 'application/xml'}}

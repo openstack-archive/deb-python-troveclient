@@ -1,4 +1,4 @@
-# Copyright (c) 2011 OpenStack, LLC.
+# Copyright (c) 2011 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -56,7 +56,7 @@ class Instances(base.ManagerWithFind):
     resource_class = Instance
 
     def create(self, name, flavor_id, volume=None, databases=None, users=None,
-               restorePoint=None):
+               restorePoint=None, availability_zone=None):
         """
         Create (boot) a new instance.
         """
@@ -72,6 +72,8 @@ class Instances(base.ManagerWithFind):
             body["instance"]["users"] = users
         if restorePoint:
             body["instance"]["restorePoint"] = restorePoint
+        if availability_zone:
+            body["instance"]["availability_zone"] = availability_zone
 
         return self._create("/instances", body, "instance")
 
@@ -125,7 +127,7 @@ class Instances(base.ManagerWithFind):
         """
         resp, body = self.api.client.delete("/instances/%s" %
                                             base.getid(instance))
-        if resp.status in (422, 500):
+        if resp.status_code in (422, 500):
             raise exceptions.from_response(resp, body)
 
     def _action(self, instance_id, body):
@@ -162,14 +164,6 @@ class Instances(base.ManagerWithFind):
         body = {'restart': {}}
         self._action(instance_id, body)
 
-    def reset_password(self, instance_id):
-        """
-        Resets the database instance root password.
-
-        :param instance_id: The :class:`Instance` (or its ID) to share onto.
-        """
-        body = {'reset-password': {}}
-        return self._action(instance_id, body)
 
 Instances.resize_flavor = Instances.resize_instance
 

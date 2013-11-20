@@ -1,4 +1,4 @@
-# Copyright (c) 2011 OpenStack, LLC.
+# Copyright (c) 2012 OpenStack Foundation
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -13,29 +13,38 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
 from troveclient import base
 
 
-class Version(base.Resource):
+class Flavor(base.Resource):
     """
-    Version is an opaque instance used to hold version information.
+    A Flavor is an Instance type, specifying among other things, RAM size.
     """
+
     def __repr__(self):
-        return "<Version: %s>" % self.id
+        return "<Flavor: %s>" % self.name
 
 
-class Versions(base.ManagerWithFind):
+class Flavors(base.ManagerWithFind):
     """
-    Manage :class:`Versions` information.
+    Manage :class:`Flavor` resources.
     """
+    resource_class = Flavor
 
-    resource_class = Version
-
-    def index(self, url):
+    def list(self):
         """
-        Get a list of all versions.
+        Get a list of all flavors.
 
-        :rtype: list of :class:`Versions`.
+        :rtype: list of :class:`Flavor`.
         """
-        resp, body = self.api.client.request(url, "GET")
-        return [self.resource_class(self, res) for res in body['versions']]
+        return self._list("/flavors", "flavors")
+
+    def get(self, flavor):
+        """
+        Get a specific flavor.
+
+        :rtype: :class:`Flavor`
+        """
+        return self._get("/flavors/%s" % base.getid(flavor),
+                         "flavor")

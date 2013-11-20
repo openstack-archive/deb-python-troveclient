@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#    Copyright 2011 OpenStack LLC
+#    Copyright 2011 OpenStack Foundation
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -26,14 +26,13 @@ import sys
 # If ../trove/__init__.py exists, add ../ to Python search path, so that
 # it will override what happens to be installed in /usr/(local/)lib/python...
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
-                                   os.pardir,
-                                   os.pardir))
-if os.path.exists(os.path.join(possible_topdir, 'troveclient',
+                                                os.pardir,
+                                                os.pardir))
+if os.path.exists(os.path.join(possible_topdir, 'troveclient.compat',
                                '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-
-from troveclient import common
+from troveclient.compat import common
 
 
 oparser = None
@@ -47,8 +46,8 @@ class HostCommands(common.AuthedCommandsBase):
     """Commands to list info on hosts"""
 
     params = [
-              'name',
-             ]
+        'name',
+    ]
 
     def update_all(self):
         """Update all instances on a host"""
@@ -90,8 +89,8 @@ class RootCommands(common.AuthedCommandsBase):
     """List details about the root info for an instance."""
 
     params = [
-              'id',
-             ]
+        'id',
+    ]
 
     def history(self):
         """List root history for the instance."""
@@ -103,8 +102,8 @@ class AccountCommands(common.AuthedCommandsBase):
     """Commands to list account info"""
 
     params = [
-              'id',
-             ]
+        'id',
+    ]
 
     def list(self):
         """List all accounts with non-deleted instances"""
@@ -120,12 +119,12 @@ class InstanceCommands(common.AuthedCommandsBase):
     """List details about an instance."""
 
     params = [
-              'deleted',
-              'id',
-              'limit',
-              'marker',
-              'host',
-             ]
+        'deleted',
+        'id',
+        'limit',
+        'marker',
+        'host',
+    ]
 
     def get(self):
         """List details for the instance."""
@@ -183,19 +182,46 @@ class StorageCommands(common.AuthedCommandsBase):
         self._pretty_list(self.dbaas.storage.index)
 
 
+class FlavorsCommands(common.AuthedCommandsBase):
+    """Commands for managing Flavors"""
+
+    params = [
+        'name',
+        'ram',
+        'disk',
+        'vcpus',
+        'flavor_id',
+        'ephemeral',
+        'swap',
+        'rxtx_factor',
+        'service_type'
+    ]
+
+    def create(self):
+        """Create a new flavor"""
+        self._require('name', 'ram', 'disk', 'vcpus',
+                      'flavor_id', 'service_type')
+        self._pretty_print(self.dbaas.mgmt_flavor.create, self.name,
+                           self.ram, self.disk, self.vcpus, self.flavor_id,
+                           self.ephemeral, self.swap, self.rxtx_factor,
+                           self.service_type)
+
+
 def config_options(oparser):
     oparser.add_option("-u", "--url", default="http://localhost:5000/v1.1",
                        help="Auth API endpoint URL with port and version. \
                             Default: http://localhost:5000/v1.1")
 
 
-COMMANDS = {'account': AccountCommands,
-            'host': HostCommands,
-            'instance': InstanceCommands,
-            'root': RootCommands,
-            'storage': StorageCommands,
-            'quota': QuotaCommands,
-            }
+COMMANDS = {
+    'account': AccountCommands,
+    'host': HostCommands,
+    'instance': InstanceCommands,
+    'root': RootCommands,
+    'storage': StorageCommands,
+    'quota': QuotaCommands,
+    'flavor': FlavorsCommands,
+}
 
 
 def main():
