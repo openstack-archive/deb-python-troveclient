@@ -5,9 +5,20 @@ include /usr/share/openstack-pkg-tools/pkgos.make
 export OSLO_PACKAGE_VERSION=$(VERSION)
 
 %:
-	dh $@  --with python2
+	dh $@ --buildsystem=python_distutils --with python2
 
-ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))
+override_dh_clean:
+	dh_clean -O--buildsystem=python_distutils
+	rm -rf .testrepository
+
 override_dh_auto_test:
-	python setup.py testr || true
+ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))
+	rm -rf .testrepository
+	testr init
+	set -e && \
+		TEMP_REZ=`mktemp -t` && \
+		PYTHONPATH=$(CURDIR) testr run --subunit | tee $$TEMP_REZ | subunit2pyunit || true ; \
+		cat $$TEMP_REZ | subunit-filter -s --no-passthrough | subunit-stats || true ; \
+		rm -f $$TEMP_REZ ;
+	testr slowest
 endif

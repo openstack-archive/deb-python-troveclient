@@ -5,13 +5,17 @@ Maintainer: PKG OpenStack <openstack-devel@lists.alioth.debian.org>
 Uploaders: Julien Danjou <acid@debian.org>,
            Thomas Goirand <zigo@debian.org>,
            Mehdi Abaakouk <sileht@sileht.net>
-Build-Depends: debhelper (>= 9), python-pbr, openstack-pkg-tools, python-all (>= 2.6.6-3~)
+Build-Depends: debhelper (>= 9),
+               openstack-pkg-tools,
+               python-all (>= 2.6.6-3~),
+               python-pbr
 Build-Depends-Indep: python-httplib2,
-                     python-lxml,
-                     python-mock,
-                     python-prettytable,
+                     python-mock (>= 1.0),
+                     python-prettytable (>= 0.7),
                      python-sphinx,
+                     python-subunit (>= 0.0.18),
                      python-testtools (>= 0.9.32),
+                     subunit (>= 0.0.18),
                      testrepository (>= 0.0.17)
 Standards-Version: 3.9.4
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/python-troveclient.git;a=summary
@@ -23,7 +27,7 @@ Architecture: all
 Pre-Depends: dpkg (>= 1.15.6~)
 Depends: python-httplib2,
          python-lxml,
-         python-prettytable,
+         python-prettytable (>= 0.7),
          ${misc:Depends},
          ${python:Depends}
 Description: Client for OpenStack Database as a Service
