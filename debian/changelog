@@ -1,3 +1,9 @@
+python-troveclient (1.0.5-1) unstable; urgency=medium
+
+  * New upstream release.
+
+ -- Thomas Goirand <zigo@debian.org>  Fri, 18 Apr 2014 09:39:11 +0000
+
 python-troveclient (1.0.3-1) unstable; urgency=medium
 
   * New upstream release.
