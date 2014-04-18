@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2010 Jacob Kaplan-Moss
 # Copyright 2012 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
@@ -27,9 +25,11 @@ import os
 
 import six
 
+from troveclient.openstack.common.apiclient import base
 from troveclient.openstack.common.apiclient import exceptions
 from troveclient import utils
-
+from troveclient import common
+from troveclient.openstack.common.py3kcompat import urlutils
 
 # Python 2.4 compat
 try:
@@ -59,6 +59,21 @@ class Manager(utils.HookableMixin):
 
     def __init__(self, api):
         self.api = api
+
+    def _paginated(self, url, response_key, limit=None, marker=None):
+        resp, body = self.api.client.get(common.limit_url(url, limit, marker))
+        if not body:
+            raise Exception("Call to " + url + " did not return a body.")
+        links = body.get('links', [])
+        next_links = [link['href'] for link in links if link['rel'] == 'next']
+        next_marker = None
+        for link in next_links:
+            # Extract the marker from the url.
+            parsed_url = urlutils.urlparse(link)
+            query_dict = dict(urlutils.parse_qsl(parsed_url.query))
+            next_marker = query_dict.get('marker')
+        data = [self.resource_class(self, res) for res in body[response_key]]
+        return common.Paginated(data, next_marker=next_marker, links=links)
 
     def _list(self, url, response_key, obj_class=None, body=None):
         resp = None
@@ -112,7 +127,7 @@ class Manager(utils.HookableMixin):
         try:
             os.makedirs(cache_dir, 0o755)
         except OSError:
-            # NOTE(kiall): This is typicaly either permission denied while
+            # NOTE(kiall): This is typically either permission denied while
             #              attempting to create the directory, or the directory
             #              already exists. Either way, don't fail.
             pass
@@ -126,7 +141,7 @@ class Manager(utils.HookableMixin):
         try:
             setattr(self, cache_attr, open(path, mode))
         except IOError:
-            # NOTE(kiall): This is typicaly a permission denied while
+            # NOTE(kiall): This is typically a permission denied while
             #              attempting to write the cache file.
             pass
 
@@ -216,7 +231,7 @@ class ManagerWithFind(six.with_metaclass(abc.ABCMeta, Manager)):
         return found
 
 
-class Resource(object):
+class Resource(base.Resource):
     """
     A resource represents a particular instance of an object (server, flavor,
     etc). This is pretty much just a bag for attributes.
@@ -228,10 +243,7 @@ class Resource(object):
     HUMAN_ID = False
 
     def __init__(self, manager, info, loaded=False):
-        self.manager = manager
-        self._info = info
-        self._add_details(info)
-        self._loaded = loaded
+        super(Resource, self).__init__(manager, info, loaded)
 
         # NOTE(sirp): ensure `id` is already present because if it isn't we'll
         # enter an infinite loop of __getattr__ -> get -> __init__ ->
@@ -242,60 +254,3 @@ class Resource(object):
         human_id = self.human_id
         if human_id:
             self.manager.write_to_completion_cache('human_id', human_id)
-
-    @property
-    def human_id(self):
-        """Subclasses may override this provide a pretty ID which can be used
-        for bash completion.
-        """
-        if 'name' in self.__dict__ and self.HUMAN_ID:
-            return utils.slugify(self.name)
-        return None
-
-    def _add_details(self, info):
-        for (k, v) in six.iteritems(info):
-            try:
-                setattr(self, k, v)
-            except AttributeError:
-                # In this case we already defined the attribute on the class
-                pass
-
-    def __getattr__(self, k):
-        if k not in self.__dict__:
-            #NOTE(bcwaldon): disallow lazy-loading if already loaded once
-            if not self.is_loaded():
-                self.get()
-                return self.__getattr__(k)
-
-            raise AttributeError(k)
-        else:
-            return self.__dict__[k]
-
-    def __repr__(self):
-        reprkeys = sorted(k for k in list(self.__dict__.keys()) if k[0] != '_'
-                          and k != 'manager')
-        info = ", ".join("%s=%s" % (k, getattr(self, k)) for k in reprkeys)
-        return "<%s %s>" % (self.__class__.__name__, info)
-
-    def get(self):
-        # set_loaded() first ... so if we have to bail, we know we tried.
-        self.set_loaded(True)
-        if not hasattr(self.manager, 'get'):
-            return
-
-        new = self.manager.get(self.id)
-        if new:
-            self._add_details(new._info)
-
-    def __eq__(self, other):
-        if not isinstance(other, self.__class__):
-            return False
-        if hasattr(self, 'id') and hasattr(other, 'id'):
-            return self.id == other.id
-        return self._info == other._info
-
-    def is_loaded(self):
-        return self._loaded
-
-    def set_loaded(self, val):
-        self._loaded = val

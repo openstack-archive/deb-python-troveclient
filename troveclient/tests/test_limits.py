@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -17,26 +15,26 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from testtools import TestCase
-from mock import Mock
+import testtools
+import mock
 from troveclient.v1 import limits
 
 
-class LimitsTest(TestCase):
+class LimitsTest(testtools.TestCase):
     """
     This class tests the calling code for the Limits API
     """
 
     def setUp(self):
         super(LimitsTest, self).setUp()
-        self.limits = limits.Limits(Mock())
-        self.limits.api.client = Mock()
+        self.limits = limits.Limits(mock.Mock())
+        self.limits.api.client = mock.Mock()
 
     def tearDown(self):
         super(LimitsTest, self).tearDown()
 
     def test_list(self):
-        resp = Mock()
+        resp = mock.Mock()
         resp.status_code = 200
         body = {"limits":
                 [
@@ -71,7 +69,7 @@ class LimitsTest(TestCase):
                      'remaining': 2, 'unit': 'MINUTE'}]}
         response = (resp, body)
 
-        mock_get = Mock(return_value=response)
+        mock_get = mock.Mock(return_value=response)
         self.limits.api.client.get = mock_get
         self.assertIsNotNone(self.limits.list())
         mock_get.assert_called_once_with("/limits")
@@ -84,15 +82,14 @@ class LimitsTest(TestCase):
     def _check_error_response(self, status_code):
         RESPONSE_KEY = "limits"
 
-        resp = Mock()
+        resp = mock.Mock()
         resp.status_code = status_code
         body = {RESPONSE_KEY: {
             'absolute': {},
             'rate': [
-            {'limit': []
-             }]}}
+                {'limit': []}]}}
         response = (resp, body)
 
-        mock_get = Mock(return_value=response)
+        mock_get = mock.Mock(return_value=response)
         self.limits.api.client.get = mock_get
         self.assertRaises(Exception, self.limits.list)

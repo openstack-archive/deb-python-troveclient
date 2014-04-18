@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -40,7 +38,7 @@ class Limits(base.ManagerWithFind):
         resp, body = self.api.client.get(url)
 
         if resp is None or resp.status_code != 200:
-            raise exceptions.from_response(resp, body)
+            raise exceptions.from_response(resp, body, url)
 
         if not body:
             raise Exception("Call to " + url + " did not return a body.")

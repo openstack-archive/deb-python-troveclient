@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # All Rights Reserved.
@@ -17,10 +15,7 @@
 #    under the License.
 
 from troveclient import base
-from troveclient.common import check_for_exceptions
-from troveclient.common import limit_url
-from troveclient.common import Paginated
-from troveclient.openstack.common.py3kcompat import urlutils
+from troveclient import common
 
 
 class Database(base.Resource):
@@ -46,31 +41,13 @@ class Databases(base.ManagerWithFind):
         body = {"databases": databases}
         url = "/instances/%s/databases" % instance_id
         resp, body = self.api.client.post(url, body=body)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
 
     def delete(self, instance_id, dbname):
         """Delete an existing database in the specified instance"""
         url = "/instances/%s/databases/%s" % (instance_id, dbname)
         resp, body = self.api.client.delete(url)
-        check_for_exceptions(resp, body)
-
-    def _list(self, url, response_key, limit=None, marker=None):
-        resp, body = self.api.client.get(limit_url(url, limit, marker))
-        check_for_exceptions(resp, body)
-        if not body:
-            raise Exception("Call to " + url +
-                            " did not return a body.")
-        links = body.get('links', [])
-        next_links = [link['href'] for link in links if link['rel'] == 'next']
-        next_marker = None
-        for link in next_links:
-            # Extract the marker from the url.
-            parsed_url = urlutils.urlparse(link)
-            query_dict = dict(urlutils.parse_qsl(parsed_url.query))
-            next_marker = query_dict.get('marker', None)
-        databases = body[response_key]
-        databases = [self.resource_class(self, res) for res in databases]
-        return Paginated(databases, next_marker=next_marker, links=links)
+        common.check_for_exceptions(resp, body, url)
 
     def list(self, instance, limit=None, marker=None):
         """
@@ -78,8 +55,8 @@ class Databases(base.ManagerWithFind):
 
         :rtype: list of :class:`Database`.
         """
-        return self._list("/instances/%s/databases" % base.getid(instance),
-                          "databases", limit, marker)
+        url = "/instances/%s/databases" % base.getid(instance)
+        return self._paginated(url, "databases", limit, marker)
 
 #    def get(self, instance, database):
 #        """

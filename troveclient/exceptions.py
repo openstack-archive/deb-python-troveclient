@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -20,7 +18,8 @@
 
 class UnsupportedVersion(Exception):
     """Indicates that the user is trying to use an unsupported
-    version of the API"""
+    version of the API.
+    """
     pass
 
 
@@ -38,7 +37,8 @@ class NoUniqueMatch(Exception):
 
 class NoTokenLookupException(Exception):
     """This form of authentication does not support looking up
-       endpoints from an existing token."""
+       endpoints from an existing token.
+    """
     pass
 
 
@@ -162,7 +162,7 @@ _code_map = dict((c.http_status, c) for c in [BadRequest, Unauthorized,
 def from_response(response, body):
     """
     Return an instance of an ClientException or subclass
-    based on an request's response.
+    based on a request's response.
 
     Usage::
 

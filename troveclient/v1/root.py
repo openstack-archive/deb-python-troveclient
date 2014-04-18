@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # All Rights Reserved.
@@ -17,9 +15,8 @@
 #    under the License.
 
 from troveclient import base
-
 from troveclient.v1 import users
-from troveclient.common import check_for_exceptions
+from troveclient import common
 
 
 class Root(base.ManagerWithFind):
@@ -32,17 +29,16 @@ class Root(base.ManagerWithFind):
     def create(self, instance_id):
         """
         Enable the root user and return the root password for the
-        sepcified db instance
+        specified db instance
         """
         resp, body = self.api.client.post(self.url % instance_id)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, self.url)
         return body['user']['name'], body['user']['password']
 
     def is_root_enabled(self, instance_id):
-        """ Return True if root is enabled for the instance;
-        False otherwise"""
+        """Return whether root is enabled for the instance."""
         resp, body = self.api.client.get(self.url % instance_id)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, self.url)
         return self.resource_class(self, body, loaded=True)
 
     # Appease the abc gods

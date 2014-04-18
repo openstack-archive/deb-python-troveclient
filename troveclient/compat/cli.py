@@ -35,7 +35,7 @@ from troveclient.compat import common
 
 
 class InstanceCommands(common.AuthedCommandsBase):
-    """Commands to perform various instances operations and actions"""
+    """Commands to perform various instance operations and actions"""
 
     params = [
         'flavor',
@@ -45,8 +45,23 @@ class InstanceCommands(common.AuthedCommandsBase):
         'name',
         'size',
         'backup',
-        'availability_zone'
+        'availability_zone',
+        'configuration_id',
     ]
+
+    def _get_configuration_ref(self):
+        configuration_ref = None
+        if self.configuration_id is not None:
+            if self.configuration_id == "":
+                configuration_ref = self.configuration_id
+            else:
+                configuration_ref = "/".join(
+                    [
+                        self.dbaas.client.service_url,
+                        self.configuration_id,
+                    ]
+                )
+        return configuration_ref
 
     def create(self):
         """Create a new instance"""
@@ -59,12 +74,20 @@ class InstanceCommands(common.AuthedCommandsBase):
             restorePoint = {"backupRef": self.backup}
         self._pretty_print(self.dbaas.instances.create, self.name,
                            self.flavor, volume, restorePoint=restorePoint,
-                           availability_zone=self.availability_zone)
+                           availability_zone=self.availability_zone,
+                           configuration_ref=self._get_configuration_ref())
+
+    # TODO(pdmars): is this actually what this should be named?
+    def modify(self):
+        """Modify an instance"""
+        self._require('id')
+        self._pretty_print(self.dbaas.instances.modify, self.id,
+                           configuration_ref=self._get_configuration_ref())
 
     def delete(self):
         """Delete the specified instance"""
         self._require('id')
-        print self.dbaas.instances.delete(self.id)
+        print(self.dbaas.instances.delete(self.id))
 
     def get(self):
         """Get details for the specified instance"""
@@ -101,6 +124,11 @@ class InstanceCommands(common.AuthedCommandsBase):
         self._require('id')
         self._pretty_print(self.dbaas.instances.restart, self.id)
 
+    def configuration(self):
+        """Get configuration for the specified instance"""
+        self._require('id')
+        self._pretty_print(self.dbaas.instances.configuration, self.id)
+
 
 class FlavorsCommands(common.AuthedCommandsBase):
     """Commands for listing Flavors"""
@@ -126,12 +154,12 @@ class DatabaseCommands(common.AuthedCommandsBase):
         """Create a database"""
         self._require('id', 'name')
         databases = [{'name': self.name}]
-        print self.dbaas.databases.create(self.id, databases)
+        print(self.dbaas.databases.create(self.id, databases))
 
     def delete(self):
         """Delete a database"""
         self._require('id', 'name')
-        print self.dbaas.databases.delete(self.id, self.name)
+        print(self.dbaas.databases.delete(self.id, self.name))
 
     def list(self):
         """List the databases"""
@@ -202,7 +230,8 @@ class UserCommands(common.AuthedCommandsBase):
 
     def grant(self):
         """Allow an existing user permissions to access one or more
-        databases."""
+        databases.
+        """
         self._require('id', 'name', 'databases')
         self._make_list('databases')
         self.dbaas.users.grant(self.id, self.name, self.databases,
@@ -235,9 +264,9 @@ class RootCommands(common.AuthedCommandsBase):
         self._require('id')
         try:
             user, password = self.dbaas.root.create(self.id)
-            print "User:\t\t%s\nPassword:\t%s" % (user, password)
-        except:
-            print sys.exc_info()[1]
+            print("User:\t\t%s\nPassword:\t%s" % (user, password))
+        except Exception:
+            print(sys.exc_info()[1])
 
     def enabled(self):
         """Check the instance for root access"""
@@ -291,6 +320,65 @@ class BackupsCommands(common.AuthedCommandsBase):
         self._pretty_print(self.dbaas.backups.delete, self.id)
 
 
+class DatastoreConfigurationParameters(common.AuthedCommandsBase):
+    """Command to show configuration parameters for a datastore"""
+    params = ['datastore', 'parameter']
+
+    def parameters(self):
+        """List parameters that can be set"""
+        self._require('datastore')
+        self._pretty_print(self.dbaas.configuration_parameters.parameters,
+                           self.datastore)
+
+    def get_parameter(self):
+        """List parameters that can be set"""
+        self._require('datastore', 'parameter')
+        self._pretty_print(self.dbaas.configuration_parameters.get_parameter,
+                           self.datastore, self.parameter)
+
+
+class ConfigurationsCommands(common.AuthedCommandsBase):
+    """Command to manage and show configurations"""
+    params = ['name', 'instances', 'values', 'description', 'parameter']
+
+    def get(self):
+        """Get details for the specified configuration"""
+        self._require('id')
+        self._pretty_print(self.dbaas.configurations.get, self.id)
+
+    def list_instances(self):
+        """Get details for the specified configuration"""
+        self._require('id')
+        self._pretty_list(self.dbaas.configurations.instances, self.id)
+
+    def list(self):
+        """List configurations"""
+        self._pretty_list(self.dbaas.configurations.list)
+
+    def create(self):
+        """Create a new configuration"""
+        self._require('name', 'values')
+        self._pretty_print(self.dbaas.configurations.create, self.name,
+                           self.values, self.description)
+
+    def update(self):
+        """Update an existing configuration"""
+        self._require('id', 'values')
+        self._pretty_print(self.dbaas.configurations.update, self.id,
+                           self.values, self.name, self.description)
+
+    def edit(self):
+        """Edit an existing configuration values"""
+        self._require('id', 'values')
+        self._pretty_print(self.dbaas.configurations.edit, self.id,
+                           self.values)
+
+    def delete(self):
+        """Delete a configuration"""
+        self._require('id')
+        self._pretty_print(self.dbaas.configurations.delete, self.id)
+
+
 class SecurityGroupCommands(common.AuthedCommandsBase):
     """Commands to list and show Security Groups For an Instance and """
     """create and delete security group rules for them. """
@@ -333,6 +421,7 @@ COMMANDS = {
     'database': DatabaseCommands,
     'limit': LimitsCommands,
     'backup': BackupsCommands,
+    'configuration': ConfigurationsCommands,
     'user': UserCommands,
     'root': RootCommands,
     'version': VersionCommands,
@@ -342,7 +431,6 @@ COMMANDS = {
 
 def main():
     # Parse arguments
-    import pdb
     load_file = True
     for index, arg in enumerate(sys.argv):
         if (arg == "auth" and len(sys.argv) > (index + 1)
@@ -388,7 +476,7 @@ def main():
                 except Exception as ex:
                     if options.debug:
                         raise
-                    print ex
+                    print(ex)
             else:
                 getattr(command_object, action)()
         else:

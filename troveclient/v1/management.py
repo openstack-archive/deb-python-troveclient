@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # All Rights Reserved.
@@ -17,13 +15,9 @@
 #    under the License.
 
 from troveclient import base
-
-from troveclient.common import check_for_exceptions
-from troveclient.common import limit_url
-from troveclient.common import Paginated
-from troveclient.openstack.common.py3kcompat import urlutils
-from troveclient.v1.instances import Instance
-from troveclient.v1.flavors import Flavor
+from troveclient import common
+from troveclient.v1 import instances
+from troveclient.v1 import flavors
 
 
 class RootHistory(base.Resource):
@@ -36,27 +30,11 @@ class Management(base.ManagerWithFind):
     """
     Manage :class:`Instances` resources.
     """
-    resource_class = Instance
+    resource_class = instances.Instance
 
     # Appease the abc gods
     def list(self):
         pass
-
-    def _list(self, url, response_key, limit=None, marker=None):
-        resp, body = self.api.client.get(limit_url(url, limit, marker))
-        if not body:
-            raise Exception("Call to " + url + " did not return a body.")
-        links = body.get('links', [])
-        next_links = [link['href'] for link in links if link['rel'] == 'next']
-        next_marker = None
-        for link in next_links:
-            # Extract the marker from the url.
-            parsed_url = urlutils.urlparse(link)
-            query_dict = dict(urlutils.parse_qsl(parsed_url.query))
-            next_marker = query_dict.get('marker', None)
-        instances = body[response_key]
-        instances = [self.resource_class(self, res) for res in instances]
-        return Paginated(instances, next_marker=next_marker, links=links)
 
     def show(self, instance):
         """
@@ -83,7 +61,7 @@ class Management(base.ManagerWithFind):
                 form = "?deleted=false"
 
         url = "/mgmt/instances%s" % form
-        return self._list(url, "instances", limit, marker)
+        return self._paginated(url, "instances", limit, marker)
 
     def root_enabled_history(self, instance):
         """
@@ -102,7 +80,7 @@ class Management(base.ManagerWithFind):
         """
         url = "/mgmt/instances/%s/action" % instance_id
         resp, body = self.api.client.post(url, body=body)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
 
     def stop(self, instance_id):
         body = {'stop': {}}
@@ -148,7 +126,7 @@ class MgmtFlavors(base.ManagerWithFind):
     """
     Manage :class:`Flavor` resources.
     """
-    resource_class = Flavor
+    resource_class = flavors.Flavor
 
     def __repr__(self):
         return "<Flavors Manager at %s>" % id(self)

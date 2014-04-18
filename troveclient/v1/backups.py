@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -18,7 +16,7 @@
 #    under the License.
 
 from troveclient import base
-from troveclient.openstack.common.apiclient import exceptions
+from troveclient import common
 
 
 class Backup(base.Resource):
@@ -51,9 +49,9 @@ class Backups(base.ManagerWithFind):
 
         :rtype: list of :class:`Backups`.
         """
-        return self._list("/backups", "backups", limit, marker)
+        return self._paginated("/backups", "backups", limit, marker)
 
-    def create(self, name, instance, description=None):
+    def create(self, name, instance, description=None, parent_id=None):
         """
         Create a new backup from the given instance.
         """
@@ -65,6 +63,8 @@ class Backups(base.ManagerWithFind):
         }
         if description:
             body['backup']['description'] = description
+        if parent_id:
+            body['backup']['parent_id'] = parent_id
         return self._create("/backups", body, "backup")
 
     def delete(self, backup_id):
@@ -73,6 +73,6 @@ class Backups(base.ManagerWithFind):
 
         :param backup_id: The backup id to delete
         """
-        resp, body = self.api.client.delete("/backups/%s" % backup_id)
-        if resp.status_code in (422, 500):
-            raise exceptions.from_response(resp, body)
+        url = "/backups/%s" % backup_id
+        resp, body = self.api.client.delete(url)
+        common.check_for_exceptions(resp, body, url)

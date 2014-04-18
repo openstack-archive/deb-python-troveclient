@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # All Rights Reserved.
@@ -31,14 +29,15 @@ import pkgutil
 import sys
 import logging
 
+import pkg_resources
 import six
 
 import troveclient
+import troveclient.extension
 from troveclient import client
-#from troveclient import exceptions as exc
-#import troveclient.extension
 from troveclient.openstack.common import strutils
 from troveclient.openstack.common.apiclient import exceptions as exc
+from troveclient.openstack.common import gettextutils as gtu
 from troveclient import utils
 from troveclient.v1 import shell as shell_v1
 
@@ -96,7 +95,7 @@ class OpenStackTroveShell(object):
                             action='store_true',
                             default=utils.env('TROVECLIENT_DEBUG',
                                               default=False),
-                            help="Print debugging output")
+                            help="Print debugging output.")
 
         parser.add_argument('--os-username',
                             metavar='<auth-user-name>',
@@ -150,21 +149,21 @@ class OpenStackTroveShell(object):
                             metavar='<service-type>',
                             default=utils.env('OS_SERVICE_TYPE',
                                               'TROVE_SERVICE_TYPE'),
-                            help='Defaults to database for most actions')
+                            help='Defaults to database for most actions.')
         parser.add_argument('--service_type',
                             help=argparse.SUPPRESS)
 
         parser.add_argument('--service-name',
                             metavar='<service-name>',
                             default=utils.env('TROVE_SERVICE_NAME'),
-                            help='Defaults to env[TROVE_SERVICE_NAME]')
+                            help='Defaults to env[TROVE_SERVICE_NAME].')
         parser.add_argument('--service_name',
                             help=argparse.SUPPRESS)
 
         parser.add_argument('--bypass-url',
                             metavar='<bypass-url>',
                             default=utils.env('TROVE_BYPASS_URL'),
-                            help='Defaults to env[TROVE_BYPASS_URL]')
+                            help='Defaults to env[TROVE_BYPASS_URL].')
         parser.add_argument('--bypass_url',
                             help=argparse.SUPPRESS)
 
@@ -172,14 +171,15 @@ class OpenStackTroveShell(object):
                             metavar='<database-service-name>',
                             default=utils.env('TROVE_DATABASE_SERVICE_NAME'),
                             help='Defaults to env'
-                            '[TROVE_DATABASE_SERVICE_NAME]')
+                            '[TROVE_DATABASE_SERVICE_NAME].')
         parser.add_argument('--database_service_name',
                             help=argparse.SUPPRESS)
 
         parser.add_argument('--endpoint-type',
                             metavar='<endpoint-type>',
-                            default=utils.env('TROVE_ENDPOINT_TYPE',
-                            default=DEFAULT_TROVE_ENDPOINT_TYPE),
+                            default=utils.env(
+                                'TROVE_ENDPOINT_TYPE',
+                                default=DEFAULT_TROVE_ENDPOINT_TYPE),
                             help='Defaults to env[TROVE_ENDPOINT_TYPE] or '
                             + DEFAULT_TROVE_ENDPOINT_TYPE + '.')
         parser.add_argument('--endpoint_type',
@@ -187,9 +187,10 @@ class OpenStackTroveShell(object):
 
         parser.add_argument('--os-database-api-version',
                             metavar='<database-api-ver>',
-                            default=utils.env('OS_DATABASE_API_VERSION',
-                            default=DEFAULT_OS_DATABASE_API_VERSION),
-                            help='Accepts 1,defaults '
+                            default=utils.env(
+                                'OS_DATABASE_API_VERSION',
+                                default=DEFAULT_OS_DATABASE_API_VERSION),
+                            help='Accepts 1, defaults '
                                  'to env[OS_DATABASE_API_VERSION].')
         parser.add_argument('--os_database_api_version',
                             help=argparse.SUPPRESS)
@@ -199,7 +200,7 @@ class OpenStackTroveShell(object):
                             default=utils.env('OS_CACERT', default=None),
                             help='Specify a CA bundle file to use in '
                             'verifying a TLS (https) server certificate. '
-                            'Defaults to env[OS_CACERT]')
+                            'Defaults to env[OS_CACERT].')
 
         parser.add_argument('--insecure',
                             default=utils.env('TROVECLIENT_INSECURE',
@@ -213,31 +214,13 @@ class OpenStackTroveShell(object):
                             default=0,
                             help='Number of retries.')
 
-        # FIXME(dtroyer): The args below are here for diablo compatibility,
-        #                 remove them in folsum cycle
-
-        # alias for --os-username, left in for backwards compatibility
-        parser.add_argument('--username',
-                            help=argparse.SUPPRESS)
-
-        # alias for --os-region_name, left in for backwards compatibility
-        parser.add_argument('--region_name',
-                            help=argparse.SUPPRESS)
-
-        # alias for --os-password, left in for backwards compatibility
-        parser.add_argument('--apikey', '--password', dest='apikey',
-                            default=utils.env('TROVE_API_KEY'),
-                            help=argparse.SUPPRESS)
-
-        # alias for --os-tenant-name, left in for backward compatibility
-        parser.add_argument('--projectid', '--tenant_name', dest='projectid',
-                            default=utils.env('TROVE_PROJECT_ID'),
-                            help=argparse.SUPPRESS)
-
-        # alias for --os-auth-url, left in for backward compatibility
-        parser.add_argument('--url', '--auth_url', dest='url',
-                            default=utils.env('TROVE_URL'),
-                            help=argparse.SUPPRESS)
+        parser.add_argument('--json', '--os-json-output',
+                            dest='json',
+                            action='store_true',
+                            default=utils.env('OS_JSON_OUTPUT',
+                                              default=False),
+                            help='Output json instead of prettyprint. '
+                                 'Defaults to env[OS_JSON_OUTPUT].')
 
         return parser
 
@@ -267,28 +250,33 @@ class OpenStackTroveShell(object):
     def _discover_extensions(self, version):
         extensions = []
         for name, module in itertools.chain(
-                self._discover_via_python_path(version),
-                self._discover_via_contrib_path(version)):
+                self._discover_via_python_path(),
+                self._discover_via_contrib_path(version),
+                self._discover_via_entry_points()):
 
             extension = troveclient.extension.Extension(name, module)
             extensions.append(extension)
 
         return extensions
 
-    def _discover_via_python_path(self, version):
-        for (module_loader, name, ispkg) in pkgutil.iter_modules():
-            if name.endswith('python_troveclient_ext'):
+    def _discover_via_python_path(self):
+        for (module_loader, name, _ispkg) in pkgutil.iter_modules():
+            if name.endswith('_python_troveclient_ext'):
                 if not hasattr(module_loader, 'load_module'):
                     # Python 2.6 compat: actually get an ImpImporter obj
                     module_loader = module_loader.find_module(name)
 
                 module = module_loader.load_module(name)
+                if hasattr(module, 'extension_name'):
+                    name = module.extension_name
+
                 yield name, module
 
     def _discover_via_contrib_path(self, version):
         module_path = os.path.dirname(os.path.abspath(__file__))
         version_str = "v%s" % version.replace('.', '_')
-        ext_path = os.path.join(module_path, version_str, 'contrib')
+        version_pkg = 'v1' if version_str == 'v1_0' else version_str
+        ext_path = os.path.join(module_path, version_pkg, 'contrib')
         ext_glob = os.path.join(ext_path, "*.py")
 
         for ext_path in glob.iglob(ext_glob):
@@ -298,6 +286,13 @@ class OpenStackTroveShell(object):
                 continue
 
             module = imp.load_source(name, ext_path)
+            yield name, module
+
+    def _discover_via_entry_points(self):
+        for ep in pkg_resources.iter_entry_points('troveclient.extension'):
+            name = ep.name
+            module = ep.load()
+
             yield name, module
 
     def _add_bash_completion_subparser(self, subparsers):
@@ -311,7 +306,7 @@ class OpenStackTroveShell(object):
 
     def _find_actions(self, subparsers, actions_module):
         for attr in (a for a in dir(actions_module) if a.startswith('do_')):
-            # I prefer to be hypen-separated instead of underscores.
+            # I prefer to be hyphen-separated instead of underscores.
             command = attr[3:].replace('_', '-')
             callback = getattr(actions_module, attr)
             desc = callback.__doc__ or ''
@@ -377,16 +372,14 @@ class OpenStackTroveShell(object):
         (os_username, os_password, os_tenant_name, os_auth_url,
          os_region_name, os_tenant_id, endpoint_type, insecure,
          service_type, service_name, database_service_name,
-         username, apikey, projectid, url, region_name,
          cacert, bypass_url) = (
              args.os_username, args.os_password,
              args.os_tenant_name, args.os_auth_url,
              args.os_region_name, args.os_tenant_id,
              args.endpoint_type, args.insecure,
              args.service_type, args.service_name,
-             args.database_service_name, args.username,
-             args.apikey, args.projectid,
-             args.url, args.region_name, args.os_cacert, args.bypass_url)
+             args.database_service_name,
+             args.os_cacert, args.bypass_url)
 
         if not endpoint_type:
             endpoint_type = DEFAULT_TROVE_ENDPOINT_TYPE
@@ -400,39 +393,24 @@ class OpenStackTroveShell(object):
 
         if not utils.isunauthenticated(args.func):
             if not os_username:
-                if not username:
-                    raise exc.CommandError(
-                        "You must provide a username "
-                        "via either --os-username or env[OS_USERNAME]")
-                else:
-                    os_username = username
+                raise exc.CommandError(
+                    "You must provide a username "
+                    "via either --os-username or env[OS_USERNAME]")
 
             if not os_password:
-                if not apikey:
-                    raise exc.CommandError("You must provide a password "
-                                           "via either --os-password or via "
-                                           "env[OS_PASSWORD]")
-                else:
-                    os_password = apikey
+                raise exc.CommandError("You must provide a password "
+                                       "via either --os-password or via "
+                                       "env[OS_PASSWORD]")
 
             if not (os_tenant_name or os_tenant_id):
-                if not projectid:
-                    raise exc.CommandError("You must provide a tenant_id "
-                                           "via either --os-tenant-id or "
-                                           "env[OS_TENANT_ID]")
-                else:
-                    os_tenant_name = projectid
+                raise exc.CommandError("You must provide a tenant_id "
+                                       "via either --os-tenant-id or "
+                                       "env[OS_TENANT_ID]")
 
             if not os_auth_url:
-                if not url:
-                    raise exc.CommandError(
-                        "You must provide an auth url "
-                        "via either --os-auth-url or env[OS_AUTH_URL]")
-                else:
-                    os_auth_url = url
-
-            if not os_region_name and region_name:
-                os_region_name = region_name
+                raise exc.CommandError(
+                    "You must provide an auth url "
+                    "via either --os-auth-url or env[OS_AUTH_URL]")
 
         if not (os_tenant_name or os_tenant_id):
             raise exc.CommandError(
@@ -476,6 +454,12 @@ class OpenStackTroveShell(object):
             #raise exc.InvalidAPIVersion(msg)
             raise exc.UnsupportedVersion(msg)
 
+        # Override printing to json output
+        if args.json:
+            utils.json_output = True
+        else:
+            utils.json_output = False
+
         args.func(self.cs, args)
 
     def _run_extension_hooks(self, hook_type, *args, **kwargs):
@@ -484,7 +468,7 @@ class OpenStackTroveShell(object):
             extension.run_hooks(hook_type, *args, **kwargs)
 
     def do_bash_completion(self, args):
-        """Print arguments for bash_completion.
+        """Prints arguments for bash_completion.
 
         Prints all of the commands and options to stdout so that the
         trove.bash_completion script doesn't have to hard code them.
@@ -501,10 +485,10 @@ class OpenStackTroveShell(object):
         print(' '.join(commands | options))
 
     @utils.arg('command', metavar='<subcommand>', nargs='?',
-               help='Display help for <subcommand>')
+               help='Display help for <subcommand>.')
     def do_help(self, args):
         """
-        Display help about this program or one of its subcommands.
+        Displays help about this program or one of its subcommands.
         """
         if args.command:
             if args.command in self.subcommands:
@@ -522,6 +506,113 @@ class OpenStackHelpFormatter(argparse.HelpFormatter):
         # Title-case the headings
         heading = '%s%s' % (heading[0].upper(), heading[1:])
         super(OpenStackHelpFormatter, self).start_section(heading)
+
+    def _format_usage(self, usage, actions, groups, prefix):
+        """
+        Print positionals before optionals in the usage string to help
+        users avoid argparse nargs='*' problems.
+
+        ex: 'trove create --databases <db_name> <name> <flavor_id>'
+        fails with 'error: too few arguments', but this succeeds:
+        'trove create <name> <flavor_id> --databases <db_name>'
+        """
+        if prefix is None:
+            prefix = gtu._('usage: ')
+
+        # if usage is specified, use that
+        if usage is not None:
+            usage = usage % dict(prog=self._prog)
+
+        # if no optionals or positionals are available, usage is just prog
+        elif usage is None and not actions:
+            usage = '%(prog)s' % dict(prog=self._prog)
+
+        # if optionals and positionals are available, calculate usage
+        elif usage is None:
+            prog = '%(prog)s' % dict(prog=self._prog)
+
+            # split optionals from positionals
+            optionals = []
+            positionals = []
+            for action in actions:
+                if action.option_strings:
+                    optionals.append(action)
+                else:
+                    positionals.append(action)
+
+            # build full usage string
+            format = self._format_actions_usage
+            action_usage = format(optionals + positionals, groups)
+            usage = ' '.join([s for s in [prog, action_usage] if s])
+
+            # wrap the usage parts if it's too long
+            text_width = self._width - self._current_indent
+            if len(prefix) + len(usage) > text_width:
+
+                # break usage into wrappable parts
+                part_regexp = r'\(.*?\)+|\[.*?\]+|\S+'
+                opt_usage = format(optionals, groups)
+                pos_usage = format(positionals, groups)
+                opt_parts = argparse._re.findall(part_regexp, opt_usage)
+                pos_parts = argparse._re.findall(part_regexp, pos_usage)
+                assert ' '.join(opt_parts) == opt_usage
+                assert ' '.join(pos_parts) == pos_usage
+
+                # helper for wrapping lines
+                def get_lines(parts, indent, prefix=None):
+                    lines = []
+                    line = []
+                    if prefix is not None:
+                        line_len = len(prefix) - 1
+                    else:
+                        line_len = len(indent) - 1
+                    for part in parts:
+                        if line_len + 1 + len(part) > text_width:
+                            lines.append(indent + ' '.join(line))
+                            line = []
+                            line_len = len(indent) - 1
+                        line.append(part)
+                        line_len += len(part) + 1
+                    if line:
+                        lines.append(indent + ' '.join(line))
+                    if prefix is not None:
+                        lines[0] = lines[0][len(indent):]
+                    return lines
+
+                # if prog is short, follow it with optionals or positionals
+                if len(prefix) + len(prog) <= 0.75 * text_width:
+                    indent = ' ' * (len(prefix) + len(prog) + 1)
+                    if pos_parts:
+                        if prog == 'trove':
+                            # "trove help" called without any subcommand
+                            lines = get_lines([prog] + opt_parts, indent,
+                                              prefix)
+                            lines.extend(get_lines(pos_parts, indent))
+                        else:
+                            lines = get_lines([prog] + pos_parts, indent,
+                                              prefix)
+                            lines.extend(get_lines(opt_parts, indent))
+                    elif opt_parts:
+                        lines = get_lines([prog] + opt_parts, indent, prefix)
+                    else:
+                        lines = [prog]
+
+                # if prog is long, put it on its own line
+                else:
+                    indent = ' ' * len(prefix)
+                    parts = pos_parts + opt_parts
+                    lines = get_lines(parts, indent)
+                    if len(lines) > 1:
+                        lines = []
+                        lines.extend(get_lines(pos_parts, indent))
+                        lines.extend(get_lines(opt_parts, indent))
+                    lines = [prog] + lines
+
+                # join lines into usage
+                usage = '\n'.join(lines)
+
+        # prefix with 'usage:'
+        return '%s%s\n\n' % (prefix, usage)
 
 
 def main():

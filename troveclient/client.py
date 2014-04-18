@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -25,6 +23,10 @@ from __future__ import print_function
 
 import logging
 import os
+import requests
+from troveclient.openstack.common.apiclient import exceptions
+from troveclient import service_catalog
+from troveclient.openstack.common.apiclient import client
 
 try:
     import urlparse
@@ -32,9 +34,9 @@ except ImportError:
     import urllib.parse as urlparse
 
 try:
-    from eventlet import sleep
+    import eventlet as sleep_lib
 except ImportError:
-    from time import sleep
+    import time as sleep_lib
 
 try:
     import json
@@ -45,13 +47,6 @@ except ImportError:
 if not hasattr(urlparse, 'parse_qsl'):
     import cgi
     urlparse.parse_qsl = cgi.parse_qsl
-
-import requests
-
-from troveclient.openstack.common.apiclient import exceptions
-from troveclient import service_catalog
-from troveclient import utils
-from troveclient.openstack.common.apiclient import client
 
 
 class HTTPClient(object):
@@ -200,15 +195,18 @@ class HTTPClient(object):
                 # Catch a connection refused from requests.request
                 self._logger.debug("Connection refused: %s" % e)
                 msg = 'Unable to establish connection: %s' % e
-                raise exceptions.ConnectionError(msg)
+                raise exceptions.ConnectionRefused(msg)
             self._logger.debug(
                 "Failed attempt(%s of %s), retrying in %s seconds" %
                 (attempts, self.retries, backoff))
-            sleep(backoff)
+            sleep_lib.sleep(backoff)
             backoff *= 2
 
     def get(self, url, **kwargs):
         return self._cs_request(url, 'GET', **kwargs)
+
+    def patch(self, url, **kwargs):
+        return self._cs_request(url, 'PATCH', **kwargs)
 
     def post(self, url, **kwargs):
         return self._cs_request(url, 'POST', **kwargs)

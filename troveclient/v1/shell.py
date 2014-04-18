@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # All Rights Reserved.
@@ -21,6 +19,12 @@ from __future__ import print_function
 import sys
 import time
 
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
+from troveclient import exceptions
 from troveclient import utils
 
 
@@ -90,7 +94,7 @@ def do_flavor_list(cs, args):
 @utils.arg('flavor', metavar='<flavor>', help='ID of the flavor.')
 @utils.service_type('database')
 def do_flavor_show(cs, args):
-    """Show details of a flavor."""
+    """Shows details of a flavor."""
     flavor = _find_flavor(cs, args.flavor)
     _print_instance(flavor)
 
@@ -99,25 +103,40 @@ def do_flavor_show(cs, args):
 
 @utils.service_type('database')
 def do_list(cs, args):
-    """List all the instances."""
+    """Lists all the instances."""
     instances = cs.instances.list()
 
     for instance in instances:
         setattr(instance, 'flavor_id', instance.flavor['id'])
         if hasattr(instance, 'volume'):
             setattr(instance, 'size', instance.volume['size'])
-    utils.print_list(instances, ['id', 'name', 'status', 'flavor_id', 'size'])
+        if hasattr(instance, 'datastore'):
+            if instance.datastore.get('version'):
+                setattr(instance, 'datastore_version',
+                        instance.datastore['version'])
+            setattr(instance, 'datastore', instance.datastore['type'])
+    utils.print_list(instances, ['id', 'name', 'datastore',
+                                 'datastore_version', 'status',
+                                 'flavor_id', 'size'])
 
 
 @utils.arg('instance', metavar='<instance>', help='ID of the instance.')
 @utils.service_type('database')
 def do_show(cs, args):
-    """Show details of an instance."""
+    """Shows details of an instance."""
     instance = _find_instance(cs, args.instance)
     instance._info['flavor'] = instance.flavor['id']
     if hasattr(instance, 'volume'):
         instance._info['volume'] = instance.volume['size']
-
+        if 'used' in instance.volume:
+            instance._info['volume_used'] = instance.volume['used']
+    if hasattr(instance, 'ip'):
+        instance._info['ip'] = ', '.join(instance.ip)
+    if hasattr(instance, 'datastore'):
+        instance._info['datastore'] = instance.datastore['type']
+        instance._info['datastore_version'] = instance.datastore['version']
+    if hasattr(instance, 'configuration'):
+        instance._info['configuration'] = instance.configuration['id']
     _print_instance(instance)
 
 
@@ -131,15 +150,15 @@ def do_delete(cs, args):
 @utils.arg('name',
            metavar='<name>',
            type=str,
-           help='Name of the instance')
+           help='Name of the instance.')
 @utils.arg('--size',
            metavar='<size>',
            type=int,
            default=None,
-           help='Size of the instance disk in GB')
+           help='Size of the instance disk in GB.')
 @utils.arg('flavor_id',
            metavar='<flavor_id>',
-           help='Flavor of the instance')
+           help='Flavor of the instance.')
 @utils.arg('--databases', metavar='<databases>',
            help='Optional list of databases.',
            nargs="+", default=[])
@@ -149,11 +168,35 @@ def do_delete(cs, args):
 @utils.arg('--backup',
            metavar='<backup>',
            default=None,
-           help='A backup UUID')
+           help='A backup UUID.')
 @utils.arg('--availability_zone',
            metavar='<availability_zone>',
            default=None,
-           help='The Zone hint to give to nova')
+           help='The Zone hint to give to nova.')
+@utils.arg('--datastore',
+           metavar='<datastore>',
+           default=None,
+           help='A datastore name or UUID.')
+@utils.arg('--datastore_version',
+           metavar='<datastore_version>',
+           default=None,
+           help='A datastore version name or UUID.')
+@utils.arg('--nic',
+           metavar="<net-id=net-uuid,v4-fixed-ip=ip-addr,port-id=port-uuid>",
+           action='append',
+           dest='nics',
+           default=[],
+           help="Create a NIC on the instance. "
+                "Specify option multiple times to create multiple NICs. "
+                "net-id: attach NIC to network with this UUID "
+                "(required, if no port-id specified), "
+                "v4-fixed-ip: IPv4 fixed address for NIC (optional), "
+                "port-id: attach NIC to port with this UUID "
+                "(required, if no net-id specified).")
+@utils.arg('--configuration',
+           metavar='<configuration>',
+           default=None,
+           help='UUID of the configuration group to attach to the instance.')
 @utils.service_type('database')
 def do_create(cs, args):
     """Creates a new instance."""
@@ -164,30 +207,49 @@ def do_create(cs, args):
     if args.backup:
         restore_point = {"backupRef": args.backup}
     databases = [{'name': value} for value in args.databases]
-    users = [{'name': n, 'password': p} for (n, p) in
+    users = [{'name': n, 'password': p, 'databases': databases} for (n, p) in
              [z.split(':')[:2] for z in args.users]]
+    nics = []
+    for nic_str in args.nics:
+        nic_info = dict([(k, v) for (k, v) in [z.split("=", 1)[:2] for z in
+                                               nic_str.split(",")]])
+        if not (nic_info.get('net-id') or nic_info.get('port-id')):
+            err_msg = ("Invalid nic argument '%s'. Nic arguments must be of "
+                       "the form --nic <net-id=net-uuid,v4-fixed-ip=ip-addr,"
+                       "port-id=port-uuid>, with at minimum net-id or port-id "
+                       "specified." % nic_str)
+            raise exceptions.CommandError(err_msg)
+        nics.append(nic_info)
     instance = cs.instances.create(args.name,
                                    args.flavor_id,
                                    volume=volume,
                                    databases=databases,
                                    users=users,
                                    restorePoint=restore_point,
-                                   availability_zone=args.availability_zone)
+                                   availability_zone=args.availability_zone,
+                                   datastore=args.datastore,
+                                   datastore_version=args.datastore_version,
+                                   nics=nics,
+                                   configuration=args.configuration)
     instance._info['flavor'] = instance.flavor['id']
     if hasattr(instance, 'volume'):
         instance._info['volume'] = instance.volume['size']
+    if hasattr(instance, 'datastore'):
+        instance._info['datastore'] = instance.datastore['type']
+        instance._info['datastore_version'] = instance.datastore['version']
     del(instance._info['links'])
-
+    if hasattr(instance, 'configuration'):
+        instance._info['configuration'] = instance.configuration['id']
     _print_instance(instance)
 
 
 @utils.arg('instance',
            metavar='<instance>',
            type=str,
-           help='UUID of the instance')
+           help='UUID of the instance.')
 @utils.arg('flavor_id',
            metavar='<flavor_id>',
-           help='Flavor of the instance')
+           help='Flavor of the instance.')
 @utils.service_type('database')
 def do_resize_flavor(cs, args):
     """Resizes the flavor of an instance."""
@@ -197,12 +259,12 @@ def do_resize_flavor(cs, args):
 @utils.arg('instance',
            metavar='<instance>',
            type=str,
-           help='UUID of the instance')
+           help='UUID of the instance.')
 @utils.arg('size',
            metavar='<size>',
            type=int,
            default=None,
-           help='Size of the instance disk in GB')
+           help='Size of the instance disk in GB.')
 @utils.service_type('database')
 def do_resize_volume(cs, args):
     """Resizes the volume size of an instance."""
@@ -212,7 +274,7 @@ def do_resize_volume(cs, args):
 @utils.arg('instance',
            metavar='<instance>',
            type=str,
-           help='UUID of the instance')
+           help='UUID of the instance.')
 @utils.service_type('database')
 def do_restart(cs, args):
     """Restarts the instance."""
@@ -224,26 +286,42 @@ def do_restart(cs, args):
 @utils.arg('backup', metavar='<backup>', help='ID of the backup.')
 @utils.service_type('database')
 def do_backup_show(cs, args):
-    """Show details of a backup."""
+    """Shows details of a backup."""
     backup = _find_backup(cs, args.backup)
     _print_instance(backup)
 
 
+@utils.arg('--limit', metavar='<limit>',
+           default=None,
+           help='Return up to N number of the most recent backups.')
 @utils.arg('instance', metavar='<instance>', help='ID of the instance.')
 @utils.service_type('database')
 def do_backup_list_instance(cs, args):
-    """List available backups for an instance."""
-    backups = cs.instances.backups(args.instance)
-    utils.print_list(backups, ['id', 'instance_id',
-                               'name', 'description', 'status'])
+    """Lists available backups for an instance."""
+    wrapper = cs.instances.backups(args.instance, limit=args.limit)
+    backups = wrapper.items
+    while wrapper.next and not args.limit:
+        wrapper = cs.instances.backups(args.instance, marker=wrapper.next)
+        backups += wrapper.items
+    utils.print_list(backups, ['id', 'name', 'status',
+                               'parent_id', 'updated'],
+                     order_by='updated')
 
 
+@utils.arg('--limit', metavar='<limit>',
+           default=None,
+           help='Return up to N number of the most recent backups.')
 @utils.service_type('database')
 def do_backup_list(cs, args):
-    """List available backups."""
-    backups = cs.backups.list()
-    utils.print_list(backups, ['id', 'instance_id',
-                               'name', 'description', 'status'])
+    """Lists available backups."""
+    wrapper = cs.backups.list(limit=args.limit)
+    backups = wrapper.items
+    while wrapper.next and not args.limit:
+        wrapper = cs.backups.list(marker=wrapper.next)
+        backups += wrapper.items
+    utils.print_list(backups, ['id', 'instance_id', 'name',
+                               'status', 'parent_id', 'updated'],
+                     order_by='updated')
 
 
 @utils.arg('backup', metavar='<backup>', help='ID of the backup.')
@@ -258,23 +336,27 @@ def do_backup_delete(cs, args):
 @utils.arg('--description', metavar='<description>',
            default=None,
            help='An optional description for the backup.')
+@utils.arg('--parent', metavar='<parent>', default=None,
+           help='Optional UUID of the parent backup to perform an'
+           ' incremental backup from.')
 @utils.service_type('database')
 def do_backup_create(cs, args):
     """Creates a backup."""
     backup = cs.backups.create(args.name, args.instance,
-                               description=args.description)
+                               description=args.description,
+                               parent_id=args.parent)
     _print_instance(backup)
 
 
 # Database related actions
 
 @utils.arg('instance', metavar='<instance>', help='UUID of the instance.')
-@utils.arg('name', metavar='<name>', help='Name of the backup.')
+@utils.arg('name', metavar='<name>', help='Name of the database.')
 @utils.arg('--character_set', metavar='<character_set>',
            default=None,
-           help='Optional character set for database')
+           help='Optional character set for database.')
 @utils.arg('--collate', metavar='<collate>', default=None,
-           help='Optional collation type for database')
+           help='Optional collation type for database.')
 @utils.service_type('database')
 def do_database_create(cs, args):
     """Creates a database on an instance."""
@@ -295,7 +377,7 @@ def do_database_list(cs, args):
     databases = wrapper.items
     while (wrapper.next):
         wrapper = cs.databases.list(args.instance, marker=wrapper.next)
-        databases = wrapper.items
+        databases += wrapper.items
 
     utils.print_list(databases, ['name'])
 
@@ -311,10 +393,10 @@ def do_database_delete(cs, args):
 # User related actions
 
 @utils.arg('instance', metavar='<instance>', help='UUID of the instance.')
-@utils.arg('name', metavar='<name>', help='Name of user')
-@utils.arg('password', metavar='<password>', help='Password of user')
+@utils.arg('name', metavar='<name>', help='Name of user.')
+@utils.arg('password', metavar='<password>', help='Password of user.')
 @utils.arg('--host', metavar='<host>', default=None,
-           help='Optional host of user')
+           help='Optional host of user.')
 @utils.arg('--databases', metavar='<databases>',
            help='Optional list of databases.',
            nargs="+", default=[])
@@ -338,14 +420,16 @@ def do_user_list(cs, args):
     while (wrapper.next):
         wrapper = cs.users.list(args.instance, marker=wrapper.next)
         users += wrapper.items
-
+    for user in users:
+        db_names = [db['name'] for db in user.databases]
+        user.databases = ', '.join(db_names)
     utils.print_list(users, ['name', 'host', 'databases'])
 
 
 @utils.arg('instance', metavar='<instance>', help='UUID of the instance.')
-@utils.arg('name', metavar='<name>', help='Name of user')
+@utils.arg('name', metavar='<name>', help='Name of user.')
 @utils.arg('--host', metavar='<host>', default=None,
-           help='Optional host of user')
+           help='Optional host of user.')
 @utils.service_type('database')
 def do_user_delete(cs, args):
     """Deletes a user from the instance."""
@@ -353,11 +437,11 @@ def do_user_delete(cs, args):
 
 
 @utils.arg('instance', metavar='<instance>', help='UUID of the instance.')
-@utils.arg('name', metavar='<name>', help='Name of user')
+@utils.arg('name', metavar='<name>', help='Name of user.')
 @utils.arg('--host', metavar='<host>', default=None,
-           help='Optional host of user')
+           help='Optional host of user.')
 @utils.service_type('database')
-# Quoting is not working now that we arent using httplib2
+# Quoting is not working now that we aren't using httplib2
 # anymore and instead are using requests
 def do_user_show(cs, args):
     """Gets a user from the instance."""
@@ -366,11 +450,11 @@ def do_user_show(cs, args):
 
 
 @utils.arg('instance', metavar='<instance>', help='UUID of the instance.')
-@utils.arg('name', metavar='<name>', help='Name of user')
+@utils.arg('name', metavar='<name>', help='Name of user.')
 @utils.arg('--host', metavar='<host>', default=None,
-           help='Optional host of user')
+           help='Optional host of user.')
 @utils.service_type('database')
-# Quoting is not working now that we arent using httplib2
+# Quoting is not working now that we aren't using httplib2
 # anymore and instead are using requests
 def do_user_show_access(cs, args):
     """Gets a users access from the instance."""
@@ -379,17 +463,17 @@ def do_user_show_access(cs, args):
 
 
 @utils.arg('instance', metavar='<instance>', help='UUID of the instance.')
-@utils.arg('name', metavar='<name>', help='Name of user')
+@utils.arg('name', metavar='<name>', help='Name of user.')
 @utils.arg('--host', metavar='<host>', default=None,
-           help='Optional host of user')
+           help='Optional host of user.')
 @utils.arg('--new_name', metavar='<new_name>', default=None,
-           help='Optional new name of user')
+           help='Optional new name of user.')
 @utils.arg('--new_password', metavar='<new_password>', default=None,
-           help='Optional new password of user')
+           help='Optional new password of user.')
 @utils.arg('--new_host', metavar='<new_host>', default=None,
-           help='Optional new host of user')
+           help='Optional new host of user.')
 @utils.service_type('database')
-# Quoting is not working now that we arent using httplib2
+# Quoting is not working now that we aren't using httplib2
 # anymore and instead are using requests
 def do_user_update_attributes(cs, args):
     """Updates a users attributes from the instance."""
@@ -405,9 +489,9 @@ def do_user_update_attributes(cs, args):
 
 
 @utils.arg('instance', metavar='<instance>', help='UUID of the instance.')
-@utils.arg('name', metavar='<name>', help='Name of user')
+@utils.arg('name', metavar='<name>', help='Name of user.')
 @utils.arg('--host', metavar='<host>', default=None,
-           help='Optional host of user')
+           help='Optional host of user.')
 @utils.arg('databases', metavar='<databases>',
            help='List of databases.',
            nargs="+", default=[])
@@ -419,13 +503,13 @@ def do_user_grant_access(cs, args):
 
 
 @utils.arg('instance', metavar='<instance>', help='UUID of the instance.')
-@utils.arg('name', metavar='<name>', help='Name of user')
+@utils.arg('name', metavar='<name>', help='Name of user.')
 @utils.arg('database', metavar='<database>', help='A single database.')
 @utils.arg('--host', metavar='<host>', default=None,
-           help='Optional host of user')
+           help='Optional host of user.')
 @utils.service_type('database')
 def do_user_revoke_access(cs, args):
-    """Revokes access to a database for a  user."""
+    """Revokes access to a database for a user."""
     cs.users.revoke(args.instance, args.name,
                     args.database, hostname=args.host)
 
@@ -484,26 +568,249 @@ def do_secgroup_show(cs, args):
 
 
 @utils.arg('security_group', metavar='<security_group>',
-           help='Security group name')
-@utils.arg('protocol', metavar='<protocol>', help='Protocol')
-@utils.arg('from_port', metavar='<from_port>', help='from port')
-@utils.arg('to_port', metavar='<to_port>', help='to port')
-@utils.arg('cidr', metavar='<cidr>', help='CIDR address')
+           help='Security group name.')
+@utils.arg('cidr', metavar='<cidr>', help='CIDR address.')
 @utils.service_type('database')
 def do_secgroup_add_rule(cs, args):
     """Creates a security group rule."""
-    rule = cs.security_group_rules.create(args.security_group,
-                                          args.protocol,
-                                          args.from_port,
-                                          args.to_port,
-                                          args.cidr)
+    rules = cs.security_group_rules.create(
+        args.security_group, args.cidr)
 
-    _print_instance(rule)
+    utils.print_list(rules, [
+        'id', 'security_group_id', 'protocol',
+        'from_port', 'to_port', 'cidr', 'created'], obj_is_dict=True)
 
 
 @utils.arg('security_group_rule', metavar='<security_group_rule>',
-           help='Security group rule')
+           help='Name of security group rule.')
 @utils.service_type('database')
 def do_secgroup_delete_rule(cs, args):
     """Deletes a security group rule."""
     cs.security_group_rules.delete(args.security_group_rule)
+
+
+@utils.service_type('database')
+def do_datastore_list(cs, args):
+    """Lists available datastores."""
+    datastores = cs.datastores.list()
+    utils.print_list(datastores, ['id', 'name'])
+
+
+@utils.arg('datastore', metavar='<datastore>',
+           help='ID of the datastore.')
+@utils.service_type('database')
+def do_datastore_show(cs, args):
+    """Shows details of a datastore."""
+    datastore = cs.datastores.get(args.datastore)
+    if hasattr(datastore, 'default_version'):
+        datastore._info['default_version'] = getattr(datastore,
+                                                     'default_version')
+    _print_instance(datastore)
+
+
+@utils.arg('datastore', metavar='<datastore>',
+           help='ID of the datastore.')
+@utils.service_type('database')
+def do_datastore_version_list(cs, args):
+    """Lists available versions for a datastore."""
+    datastore_versions = cs.datastore_versions.list(args.datastore)
+    utils.print_list(datastore_versions, ['id', 'name'])
+
+
+@utils.arg('--datastore', metavar='<datastore>',
+           default=None,
+           help='ID or name of the datastore. Optional if UUID of the'
+                ' datastore_version is provided.')
+@utils.arg('datastore_version', metavar='<datastore_version>',
+           help='ID of the datastore version.')
+@utils.service_type('database')
+def do_datastore_version_show(cs, args):
+    """Shows details of a datastore version."""
+    if args.datastore:
+        datastore_version = cs.datastore_versions.get(args.datastore,
+                                                      args.datastore_version)
+    elif utils.is_uuid_like(args.datastore_version):
+        datastore_version = cs.datastore_versions.get_by_uuid(
+            args.datastore_version)
+    else:
+        raise exceptions.NoUniqueMatch('The datastore name or id is required'
+                                       ' to retrieve a datastore version'
+                                       ' by name.')
+    _print_instance(datastore_version)
+
+
+# configuration group related functions
+
+@utils.arg('configuration',
+           metavar='<configuration>',
+           type=str,
+           help='UUID of the configuration group to attach to the instance.')
+@utils.arg('instance',
+           metavar='<instance>',
+           type=str,
+           help='UUID of the instance.')
+@utils.service_type('database')
+def do_configuration_attach(cs, args):
+    """Attaches a configuration group to an instance."""
+    cs.instances.modify(args.instance, args.configuration)
+
+
+@utils.arg('name', metavar='<name>', help='Name of the configuration group.')
+@utils.arg('values', metavar='<values>',
+           help='Dictionary of the values to set.')
+@utils.arg('--datastore', metavar='<datastore>',
+           help='Datastore assigned to the configuration group.')
+@utils.arg('--datastore_version', metavar='<datastore_version>',
+           help='Datastore version UUID assigned to the configuration group.')
+@utils.arg('--description', metavar='<description>',
+           default=None,
+           help='An optional description for the configuration group.')
+@utils.service_type('database')
+def do_configuration_create(cs, args):
+    """Creates a configuration group."""
+    config_grp = cs.configurations.create(
+        args.name,
+        args.values,
+        description=args.description,
+        datastore=args.datastore,
+        datastore_version=args.datastore_version)
+    config_grp._info['values'] = json.dumps(config_grp.values)
+    _print_instance(config_grp)
+
+
+@utils.arg('instance',
+           metavar='<instance>',
+           type=str,
+           help='UUID of the instance.')
+@utils.service_type('database')
+def do_configuration_default(cs, args):
+    """Shows the default configuration of an instance."""
+    configs = cs.instances.configuration(args.instance)
+    utils.print_dict(configs._info['configuration'])
+
+
+@utils.arg('configuration_group', metavar='<configuration_group>',
+           help='ID of the configuration group.')
+@utils.service_type('database')
+def do_configuration_delete(cs, args):
+    """Deletes a configuration group."""
+    cs.configurations.delete(args.configuration_group)
+
+
+@utils.arg('instance',
+           metavar='<instance>',
+           type=str,
+           help='UUID of the instance.')
+@utils.service_type('database')
+def do_configuration_detach(cs, args):
+    """Detaches a configuration group from an instance."""
+    cs.instances.modify(args.instance)
+
+
+@utils.arg('--datastore', metavar='<datastore>',
+           default=None,
+           help='UUID or name of the datastore to list configuration '
+                'parameters for. Optional if UUID of the'
+                ' datastore_version is provided.')
+@utils.arg('datastore_version',
+           metavar='<datastore_version>',
+           help='Datastore version name or UUID assigned to the '
+                'configuration group.')
+@utils.arg('parameter', metavar='<parameter>',
+           help='Name of the configuration parameter.')
+@utils.service_type('database')
+def do_configuration_parameter_show(cs, args):
+    """Shows details of a configuration parameter."""
+    if args.datastore:
+        param = cs.configuration_parameters.get_parameter(
+            args.datastore,
+            args.datastore_version,
+            args.parameter)
+    elif utils.is_uuid_like(args.datastore_version):
+        param = cs.configuration_parameters.get_parameter_by_version(
+            args.datastore_version,
+            args.parameter)
+    _print_instance(param)
+
+
+@utils.arg('--datastore', metavar='<datastore>',
+           default=None,
+           help='UUID or name of the datastore to list configuration '
+                'parameters for. Optional if UUID of the'
+                ' datastore_version is provided.')
+@utils.arg('datastore_version',
+           metavar='<datastore_version>',
+           help='Datastore version name or UUID assigned to the '
+                'configuration group.')
+@utils.service_type('database')
+def do_configuration_parameter_list(cs, args):
+    """Lists available parameters for a configuration group."""
+    if args.datastore:
+        params = cs.configuration_parameters.parameters(
+            args.datastore,
+            args.datastore_version)
+    elif utils.is_uuid_like(args.datastore_version):
+        params = cs.configuration_parameters.parameters_by_version(
+            args.datastore_version)
+    else:
+        raise exceptions.NoUniqueMatch('The datastore name or id is required'
+                                       ' to retrieve the parameters for the'
+                                       ' configuration group by name.')
+    utils.print_list(params, ['name', 'type', 'min', 'max',
+                              'restart_required'])
+
+
+@utils.arg('configuration_group', metavar='<configuration_group>',
+           help='ID of the configuration group.')
+@utils.arg('values', metavar='<values>',
+           help='Dictionary of the values to set.')
+@utils.service_type('database')
+def do_configuration_patch(cs, args):
+    """Patches a configuration group."""
+    cs.configurations.edit(args.configuration_group,
+                           args.values)
+
+
+@utils.arg('configuration_group', metavar='<configuration_group>',
+           help='ID of the configuration group.')
+@utils.service_type('database')
+def do_configuration_instances(cs, args):
+    """Lists all instances associated with a configuration group."""
+    params = cs.configurations.instances(args.configuration_group)
+    utils.print_list(params, ['id', 'name'])
+
+
+@utils.service_type('database')
+def do_configuration_list(cs, args):
+    """Lists all configuration groups."""
+    config_grps = cs.configurations.list()
+    utils.print_list(config_grps, ['id', 'name', 'description',
+                                   'datastore_version_id'])
+
+
+@utils.arg('configuration_group', metavar='<configuration_group>',
+           help='ID of the configuration group.')
+@utils.service_type('database')
+def do_configuration_show(cs, args):
+    """Shows details of a configuration group."""
+    config_grp = cs.configurations.get(args.configuration_group)
+    config_grp._info['values'] = json.dumps(config_grp.values)
+    _print_instance(config_grp)
+
+
+@utils.arg('configuration_group', metavar='<configuration_group>',
+           help='ID of the configuration group.')
+@utils.arg('values', metavar='<values>',
+           help='Dictionary of the values to set.')
+@utils.arg('--name', metavar='<name>', default=None,
+           help='Name of the configuration group.')
+@utils.arg('--description', metavar='<description>',
+           default=None,
+           help='An optional description for the configuration group.')
+@utils.service_type('database')
+def do_configuration_update(cs, args):
+    """Updates a configuration group."""
+    cs.configurations.update(args.configuration_group,
+                             args.values,
+                             args.name,
+                             args.description)

@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -17,24 +15,25 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from testtools import TestCase
+import testtools
 
 import troveclient.v1.client
-from troveclient.client import get_version_map
+
+from troveclient import client as other_client
 from troveclient.openstack.common.apiclient import client
 from troveclient.openstack.common.apiclient import exceptions
 
 
-class ClientTest(TestCase):
+class ClientTest(testtools.TestCase):
 
     def test_get_client_class_v1(self):
-        version_map = get_version_map()
+        version_map = other_client.get_version_map()
         output = client.BaseClient.get_class('database',
                                              '1.0', version_map)
         self.assertEqual(output, troveclient.v1.client.Client)
 
     def test_get_client_class_unknown(self):
-        version_map = get_version_map()
+        version_map = other_client.get_version_map()
         self.assertRaises(exceptions.UnsupportedVersion,
                           client.BaseClient.get_class, 'database',
                           '0', version_map)

@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # All Rights Reserved.
@@ -17,8 +15,7 @@
 #    under the License.
 
 from troveclient import base
-
-from troveclient.common import check_for_exceptions
+from troveclient import common
 
 
 class Host(base.Resource):
@@ -47,7 +44,7 @@ class Hosts(base.ManagerWithFind):
         """
         url = "/mgmt/hosts/%s/instances/action" % host_id
         resp, body = self.api.client.post(url, body=body)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
 
     def update_all(self, host_id):
         """

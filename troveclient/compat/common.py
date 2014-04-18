@@ -21,7 +21,6 @@ import six
 import sys
 
 from troveclient.compat import client
-from troveclient.compat.xml import TroveXmlClient
 from troveclient.compat import exceptions
 
 from troveclient.openstack.common.py3kcompat import urlutils
@@ -29,7 +28,8 @@ from troveclient.openstack.common.py3kcompat import urlutils
 
 def methods_of(obj):
     """Get all callable methods of an object that don't start with underscore
-    returns a list of tuples of the form (method_name, method)"""
+    returns a list of tuples of the form (method_name, method).
+    """
     result = {}
     for i in dir(obj):
         if callable(getattr(obj, i)) and not i.startswith('_'):
@@ -44,7 +44,7 @@ def check_for_exceptions(resp, body):
 
 def print_actions(cmd, actions):
     """Print help for the command with list of options and description"""
-    print(("Available actions for '%s' cmd:") % cmd)
+    print("Available actions for '%s' cmd:" % cmd)
     for k, v in six.iteritems(actions):
         print("\t%-20s%s" % (k, v.__doc__))
     sys.exit(2)
@@ -82,7 +82,8 @@ def quote_user_host(user, host):
 
 class CliOptions(object):
     """A token object containing the user, apikey and token which
-       is pickleable."""
+       is pickleable.
+    """
 
     APITOKEN = os.path.expanduser("~/.apitoken")
 
@@ -100,7 +101,6 @@ class CliOptions(object):
         'verbose': False,
         'debug': False,
         'token': None,
-        'xml': None,
     }
 
     def __init__(self, **kwargs):
@@ -119,7 +119,7 @@ class CliOptions(object):
                 return pickle.load(token)
         except IOError:
             pass  # File probably not found.
-        except:
+        except Exception:
             print("ERROR: Token file found at %s was corrupt." % cls.APITOKEN)
         return cls.default()
 
@@ -157,30 +157,29 @@ class CliOptions(object):
                    help="Show the stack trace on errors.")
         add_option("auth_url", help="Auth API endpoint URL with port and "
                    "version. Default: http://localhost:5000/v2.0")
-        add_option("username", help="Login username")
-        add_option("apikey", help="Api key")
+        add_option("username", help="Login username.")
+        add_option("apikey", help="API key.")
         add_option("tenant_id",
-                   help="Tenant Id associated with the account")
+                   help="Tenant Id associated with the account.")
         add_option("auth_type",
                    help="Auth type to support different auth environments, \
                                 Supported values are 'keystone', 'rax'.")
         add_option("service_type",
-                   help="Service type is a name associated for the catalog")
+                   help="Service type is a name associated for the catalog.")
         add_option("service_name",
-                   help="Service name as provided in the service catalog")
+                   help="Service name as provided in the service catalog.")
         add_option("service_url",
                    help="Service endpoint to use "
                         "if the catalog doesn't have one.")
-        add_option("region", help="Region the service is located in")
+        add_option("region", help="Region the service is located in.")
         add_option("insecure", action="store_true",
                    help="Run in insecure mode for https endpoints.")
         add_option("token", help="Token from a prior login.")
-        add_option("xml", action="store_true", help="Changes format to XML.")
 
-        oparser.add_option("--secure", action="store_false", dest="insecure",
-                           help="Run in insecure mode for https endpoints.")
         oparser.add_option("--json", action="store_false", dest="xml",
                            help="Changes format to JSON.")
+        oparser.add_option("--secure", action="store_false", dest="insecure",
+                           help="Run in insecure mode for https endpoints.")
         oparser.add_option("--terse", action="store_false", dest="verbose",
                            help="Toggles verbose mode off.")
         oparser.add_option("--hide-debug", action="store_false", dest="debug",
@@ -216,10 +215,7 @@ class CommandsBase(object):
     def _get_client(self):
         """Creates the all important client object."""
         try:
-            if self.xml:
-                client_cls = TroveXmlClient
-            else:
-                client_cls = client.TroveHTTPClient
+            client_cls = client.TroveHTTPClient
             if self.verbose:
                 client.log_to_streamhandler(sys.stdout)
                 client.RDC_PP = True
@@ -232,7 +228,7 @@ class CommandsBase(object):
                                 service_url=self.service_url,
                                 insecure=self.insecure,
                                 client_cls=client_cls)
-        except:
+        except Exception:
             if self.debug:
                 raise
             print(sys.exc_info()[1])
@@ -241,7 +237,7 @@ class CommandsBase(object):
         if not self.debug:
             try:
                 return func(*args, **kwargs)
-            except:
+            except Exception:
                 print(sys.exc_info()[1])
                 return None
         else:
@@ -328,7 +324,7 @@ class CommandsBase(object):
                         print(self._dumps((link)))
             else:
                 print("OK")
-        except:
+        except Exception:
             if self.debug:
                 raise
             print(sys.exc_info()[1])
@@ -363,17 +359,17 @@ class Auth(CommandsBase):
             self.token = self.dbaas.client.auth_token
             self.service_url = self.dbaas.client.service_url
             CliOptions.save_from_instance_fields(self)
-            print("Token aquired! Saving to %s..." % CliOptions.APITOKEN)
+            print("Token acquired! Saving to %s..." % CliOptions.APITOKEN)
             print("    service_url = %s" % self.service_url)
             print("    token       = %s" % self.token)
-        except:
+        except Exception:
             if self.debug:
                 raise
             print(sys.exc_info()[1])
 
 
 class AuthedCommandsBase(CommandsBase):
-    """Commands that work only with an authicated client."""
+    """Commands that work only with an authenticated client."""
 
     def __init__(self, parser):
         """Makes sure a token is available somehow and logs in."""
@@ -400,8 +396,9 @@ class AuthedCommandsBase(CommandsBase):
 
 
 class Paginated(object):
-    """ Pretends to be a list if you iterate over it, but also keeps a
-        next property you can use to get the next page of data. """
+    """Pretends to be a list if you iterate over it, but also keeps a
+       next property you can use to get the next page of data.
+    """
 
     def __init__(self, items=[], next_marker=None, links=[]):
         self.items = items

@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -20,11 +18,12 @@
 import contextlib
 import os
 
-from testtools import TestCase
-from mock import Mock
+import testtools
+import mock
 
 from troveclient import base
 from troveclient.openstack.common.apiclient import exceptions
+from troveclient import common
 from troveclient import utils
 
 """
@@ -38,26 +37,24 @@ def obj_class(self, res, loaded=True):
     return res
 
 
-class BaseTest(TestCase):
-
+class BaseTest(testtools.TestCase):
     def test_getid(self):
         obj = "test"
         r = base.getid(obj)
         self.assertEqual(obj, r)
 
         test_id = "test_id"
-        obj = Mock()
+        obj = mock.Mock()
         obj.id = test_id
         r = base.getid(obj)
         self.assertEqual(test_id, r)
 
 
-class ManagerTest(TestCase):
-
+class ManagerTest(testtools.TestCase):
     def setUp(self):
         super(ManagerTest, self).setUp()
         self.orig__init = base.Manager.__init__
-        base.Manager.__init__ = Mock(return_value=None)
+        base.Manager.__init__ = mock.Mock(return_value=None)
         self.orig_os_makedirs = os.makedirs
 
     def tearDown(self):
@@ -66,7 +63,7 @@ class ManagerTest(TestCase):
         os.makedirs = self.orig_os_makedirs
 
     def test___init__(self):
-        api = Mock()
+        api = mock.Mock()
         base.Manager.__init__ = self.orig__init
         manager = base.Manager(api)
         self.assertEqual(api, manager.api)
@@ -77,11 +74,11 @@ class ManagerTest(TestCase):
         # handling exceptions
         mode = "w"
         cache_type = "unittest"
-        obj_class = Mock
+        obj_class = mock.Mock
         with manager.completion_cache(cache_type, obj_class, mode):
             pass
 
-        os.makedirs = Mock(side_effect=OSError)
+        os.makedirs = mock.Mock(side_effect=OSError)
         with manager.completion_cache(cache_type, obj_class, mode):
             pass
 
@@ -94,20 +91,20 @@ class ManagerTest(TestCase):
         def side_effect_func(val):
             return val
 
-        manager._mock_cache = Mock()
-        manager._mock_cache.write = Mock(return_value=None)
+        manager._mock_cache = mock.Mock()
+        manager._mock_cache.write = mock.Mock(return_value=None)
         manager.write_to_completion_cache("mock", "val")
         self.assertEqual(1, manager._mock_cache.write.call_count)
 
     def _get_mock(self):
         manager = base.Manager()
-        manager.api = Mock()
-        manager.api.client = Mock()
+        manager.api = mock.Mock()
+        manager.api.client = mock.Mock()
 
         def side_effect_func(self, body, loaded=True):
             return body
 
-        manager.resource_class = Mock(side_effect=side_effect_func)
+        manager.resource_class = mock.Mock(side_effect=side_effect_func)
         return manager
 
     def test__get_with_response_key_none(self):
@@ -115,7 +112,7 @@ class ManagerTest(TestCase):
         url_ = "test-url"
         body_ = "test-body"
         resp_ = "test-resp"
-        manager.api.client.get = Mock(return_value=(resp_, body_))
+        manager.api.client.get = mock.Mock(return_value=(resp_, body_))
         r = manager._get(url=url_, response_key=None)
         self.assertEqual(body_, r)
 
@@ -124,20 +121,20 @@ class ManagerTest(TestCase):
         response_key = "response_key"
         body_ = {response_key: "test-resp-key-body"}
         url_ = "test_url_get"
-        manager.api.client.get = Mock(return_value=(url_, body_))
+        manager.api.client.get = mock.Mock(return_value=(url_, body_))
         r = manager._get(url=url_, response_key=response_key)
         self.assertEqual(body_[response_key], r)
 
     def test__create(self):
         manager = base.Manager()
-        manager.api = Mock()
-        manager.api.client = Mock()
+        manager.api = mock.Mock()
+        manager.api.client = mock.Mock()
 
         response_key = "response_key"
         data_ = "test-data"
         body_ = {response_key: data_}
         url_ = "test_url_post"
-        manager.api.client.post = Mock(return_value=(url_, body_))
+        manager.api.client.post = mock.Mock(return_value=(url_, body_))
 
         return_raw = True
         r = manager._create(url_, body_, response_key, return_raw)
@@ -149,18 +146,18 @@ class ManagerTest(TestCase):
         def completion_cache_mock(*arg, **kwargs):
             yield
 
-        mock = Mock()
-        mock.side_effect = completion_cache_mock
-        manager.completion_cache = mock
+        mockl = mock.Mock()
+        mockl.side_effect = completion_cache_mock
+        manager.completion_cache = mockl
 
-        manager.resource_class = Mock(return_value="test-class")
+        manager.resource_class = mock.Mock(return_value="test-class")
         r = manager._create(url_, body_, response_key, return_raw)
         self.assertEqual("test-class", r)
 
     def get_mock_mng_api_client(self):
         manager = base.Manager()
-        manager.api = Mock()
-        manager.api.client = Mock()
+        manager.api = mock.Mock()
+        manager.api.client = mock.Mock()
         return manager
 
     def test__delete(self):
@@ -168,7 +165,7 @@ class ManagerTest(TestCase):
         body_ = "test-body"
 
         manager = self.get_mock_mng_api_client()
-        manager.api.client.delete = Mock(return_value=(resp_, body_))
+        manager.api.client.delete = mock.Mock(return_value=(resp_, body_))
         # _delete just calls api.client.delete, and does nothing
         # the correctness should be tested in api class
         manager._delete("test-url")
@@ -179,13 +176,12 @@ class ManagerTest(TestCase):
         body_ = "test-body"
 
         manager = self.get_mock_mng_api_client()
-        manager.api.client.put = Mock(return_value=(resp_, body_))
+        manager.api.client.put = mock.Mock(return_value=(resp_, body_))
         body = manager._update("test-url", body_)
         self.assertEqual(body_, body)
 
 
 class ManagerListTest(ManagerTest):
-
     def setUp(self):
         super(ManagerListTest, self).setUp()
 
@@ -194,25 +190,26 @@ class ManagerListTest(ManagerTest):
             yield
 
         self.manager = base.Manager()
-        self.manager.api = Mock()
-        self.manager.api.client = Mock()
+        self.manager.api = mock.Mock()
+        self.manager.api.client = mock.Mock()
 
         self.response_key = "response_key"
         self.data_p = ["p1", "p2"]
         self.body_p = {self.response_key: self.data_p}
         self.url_p = "test_url_post"
-        self.manager.api.client.post = Mock(return_value=(self.url_p,
-                                                          self.body_p))
-
+        self.manager.api.client.post = mock.Mock(
+            return_value=(self.url_p, self.body_p)
+        )
         self.data_g = ["g1", "g2", "g3"]
         self.body_g = {self.response_key: self.data_g}
         self.url_g = "test_url_get"
-        self.manager.api.client.get = Mock(return_value=(self.url_g,
-                                                         self.body_g))
+        self.manager.api.client.get = mock.Mock(
+            return_value=(self.url_g, self.body_g)
+        )
 
-        mock = Mock()
-        mock.side_effect = completion_cache_mock
-        self.manager.completion_cache = mock
+        mockl = mock.Mock()
+        mockl.side_effect = completion_cache_mock
+        self.manager.completion_cache = mockl
 
     def tearDown(self):
         super(ManagerListTest, self).tearDown()
@@ -238,7 +235,7 @@ class ManagerListTest(ManagerTest):
         data_ = {"values": ["p1", "p2"]}
         body_ = {self.response_key: data_}
         url_ = "test_url_post"
-        self.manager.api.client.post = Mock(return_value=(url_, body_))
+        self.manager.api.client.post = mock.Mock(return_value=(url_, body_))
         l = self.manager._list("url", self.response_key,
                                obj_class, "something")
         data = data_["values"]
@@ -250,14 +247,73 @@ class ManagerListTest(ManagerTest):
         data_ = {"v1": "1", "v2": "2"}
         body_ = {self.response_key: data_}
         url_ = "test_url_post"
-        self.manager.api.client.post = Mock(return_value=(url_, body_))
+        self.manager.api.client.post = mock.Mock(return_value=(url_, body_))
         l = self.manager._list("url", self.response_key,
                                obj_class, "something")
         self.assertEqual(len(data_), len(l))
 
 
-class FakeResource(object):
+class MangerPaginationTests(ManagerTest):
 
+    def setUp(self):
+        super(MangerPaginationTests, self).setUp()
+        self.manager = base.Manager()
+        self.manager.api = mock.Mock()
+        self.manager.api.client = mock.Mock()
+        self.manager.resource_class = base.Resource
+
+        self.response_key = "response_key"
+        self.data = [{"foo": "p1"}, {"foo": "p2"}]
+        self.next_data = [{"foo": "p3"}, {"foo": "p4"}]
+        self.marker = 'test-marker'
+        self.limit = '20'
+        self.url = "http://test_url"
+        self.next_url = '%s?marker=%s&limit=%s' % (self.url, self.marker,
+                                                   self.limit)
+        self.links = [{'href': self.next_url, 'rel': 'next'}]
+        self.body = {
+            self.response_key: self.data,
+            'links': self.links
+        }
+        self.next_body = {self.response_key: self.next_data}
+
+        def side_effect(url):
+            if url == self.url:
+                return (None, self.body)
+            if url == self.next_url:
+                return (None, self.next_body)
+
+        self.manager.api.client.get = mock.Mock(side_effect=side_effect)
+
+    def tearDown(self):
+        super(MangerPaginationTests, self).tearDown()
+
+    def test_pagination(self):
+        resp = self.manager._paginated(self.url, self.response_key)
+        self.manager.api.client.get.assert_called_with(self.url)
+        self.assertEqual(resp.items[0].foo, 'p1')
+        self.assertEqual(resp.items[1].foo, 'p2')
+        self.assertEqual(resp.next, self.marker)
+        self.assertEqual(resp.links, self.links)
+        self.assertTrue(isinstance(resp, common.Paginated))
+
+    def test_pagination_next(self):
+        resp = self.manager._paginated(self.url, self.response_key,
+                                       limit=self.limit, marker=self.marker)
+        self.manager.api.client.get.assert_called_with(self.next_url)
+        self.assertEqual(resp.items[0].foo, 'p3')
+        self.assertEqual(resp.items[1].foo, 'p4')
+        self.assertEqual(resp.next, None)
+        self.assertEqual(resp.links, [])
+        self.assertTrue(isinstance(resp, common.Paginated))
+
+    def test_pagination_error(self):
+        self.manager.api.client.get = mock.Mock(return_value=(None, None))
+        self.assertRaises(Exception, self.manager._paginated,
+                          self.url, self.response_key)
+
+
+class FakeResource(object):
     def __init__(self, _id, properties):
         self.id = _id
         try:
@@ -271,7 +327,6 @@ class FakeResource(object):
 
 
 class FakeManager(base.ManagerWithFind):
-
     resource_class = FakeResource
 
     resources = [
@@ -291,8 +346,7 @@ class FakeManager(base.ManagerWithFind):
         return self.resources
 
 
-class FindResourceTestCase(TestCase):
-
+class FindResourceTestCase(testtools.TestCase):
     def setUp(self):
         super(FindResourceTestCase, self).setUp()
         self.manager = FakeManager(None)
@@ -324,8 +378,7 @@ class FindResourceTestCase(TestCase):
         self.assertEqual(output, self.manager.get('4242'))
 
 
-class ResourceTest(TestCase):
-
+class ResourceTest(testtools.TestCase):
     def setUp(self):
         super(ResourceTest, self).setUp()
         self.orig___init__ = base.Resource.__init__
@@ -335,8 +388,8 @@ class ResourceTest(TestCase):
         base.Resource.__init__ = self.orig___init__
 
     def test___init__(self):
-        manager = Mock()
-        manager.write_to_completion_cache = Mock(return_value=None)
+        manager = mock.Mock()
+        manager.write_to_completion_cache = mock.Mock(return_value=None)
 
         info_ = {}
         robj = base.Resource(manager, info_)
@@ -359,7 +412,7 @@ class ResourceTest(TestCase):
         # Resource.HUMAN_ID is False
         robj = base.Resource(manager, info_)
         self.assertEqual(info_["id"], robj.id)
-        self.assertEqual(None, robj.human_id)
+        self.assertIsNone(robj.human_id)
         self.assertEqual(2, manager.write_to_completion_cache.call_count)
 
         # base.Resource.HUMAN_ID = True
@@ -370,12 +423,12 @@ class ResourceTest(TestCase):
         self.assertEqual(4, manager.write_to_completion_cache.call_count)
 
     def test_human_id(self):
-        manager = Mock()
-        manager.write_to_completion_cache = Mock(return_value=None)
+        manager = mock.Mock()
+        manager.write_to_completion_cache = mock.Mock(return_value=None)
 
         info_ = {"name": "test-human-id"}
         robj = base.Resource(manager, info_)
-        self.assertEqual(None, robj.human_id)
+        self.assertIsNone(robj.human_id)
 
         info_["HUMAN_ID"] = True
         robj = base.Resource(manager, info_)
@@ -384,8 +437,9 @@ class ResourceTest(TestCase):
         self.assertEqual("new-human-id", robj.human_id)
 
     def get_mock_resource_obj(self):
-        base.Resource.__init__ = Mock(return_value=None)
+        base.Resource.__init__ = mock.Mock(return_value=None)
         robj = base.Resource()
+        robj._loaded = False
         return robj
 
     def test__add_details(self):
@@ -414,19 +468,19 @@ class ResourceTest(TestCase):
 
     def test_get(self):
         robj = self.get_mock_resource_obj()
-        manager = Mock()
+        manager = mock.Mock()
         manager.get = None
 
         robj.manager = object()
         robj.get()
 
-        manager = Mock()
-        robj.manager = Mock()
+        manager = mock.Mock()
+        robj.manager = mock.Mock()
 
         robj.id = "id"
-        new = Mock()
+        new = mock.Mock()
         new._info = {"name": "test-human-id", "test_attr": 5}
-        robj.manager.get = Mock(return_value=new)
+        robj.manager.get = mock.Mock(return_value=new)
         robj.get()
         self.assertEqual("test-human-id", robj.name)
         self.assertEqual(5, robj.test_attr)
@@ -451,7 +505,7 @@ class ResourceTest(TestCase):
         self.assertTrue(robj.__eq__(other))
 
         # not instance of the same class
-        other = Mock()
+        other = mock.Mock()
         self.assertNotTrue(robj.__eq__(other))
 
     def test_is_loaded(self):

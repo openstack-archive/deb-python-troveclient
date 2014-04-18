@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # All Rights Reserved.
@@ -18,11 +16,7 @@
 
 from troveclient import base
 from troveclient.v1 import databases
-from troveclient.common import check_for_exceptions
-from troveclient.common import limit_url
-from troveclient.common import Paginated
-from troveclient.common import quote_user_host
-from troveclient.openstack.common.py3kcompat import urlutils
+from troveclient import common
 
 
 class User(base.Resource):
@@ -46,31 +40,14 @@ class Users(base.ManagerWithFind):
         body = {"users": users}
         url = "/instances/%s/users" % instance_id
         resp, body = self.api.client.post(url, body=body)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
 
     def delete(self, instance_id, username, hostname=None):
         """Delete an existing user in the specified instance"""
-        user = quote_user_host(username, hostname)
+        user = common.quote_user_host(username, hostname)
         url = "/instances/%s/users/%s" % (instance_id, user)
         resp, body = self.api.client.delete(url)
-        check_for_exceptions(resp, body)
-
-    def _list(self, url, response_key, limit=None, marker=None):
-        resp, body = self.api.client.get(limit_url(url, limit, marker))
-        check_for_exceptions(resp, body)
-        if not body:
-            raise Exception("Call to " + url +
-                            " did not return a body.")
-        links = body.get('links', [])
-        next_links = [link['href'] for link in links if link['rel'] == 'next']
-        next_marker = None
-        for link in next_links:
-            # Extract the marker from the url.
-            parsed_url = urlutils.urlparse(link)
-            query_dict = dict(urlutils.parse_qsl(parsed_url.query))
-            next_marker = query_dict.get('marker', None)
-        users = [self.resource_class(self, res) for res in body[response_key]]
-        return Paginated(users, next_marker=next_marker, links=links)
+        common.check_for_exceptions(resp, body, url)
 
     def list(self, instance, limit=None, marker=None):
         """
@@ -78,8 +55,8 @@ class Users(base.ManagerWithFind):
 
         :rtype: list of :class:`User`.
         """
-        return self._list("/instances/%s/users" % base.getid(instance),
-                          "users", limit, marker)
+        url = "/instances/%s/users" % base.getid(instance)
+        return self._paginated(url, "users", limit, marker)
 
     def get(self, instance_id, username, hostname=None):
         """
@@ -87,7 +64,7 @@ class Users(base.ManagerWithFind):
 
         :rtype: :class:`User`.
         """
-        user = quote_user_host(username, hostname)
+        user = common.quote_user_host(username, hostname)
         url = "/instances/%s/users/%s" % (instance_id, user)
         return self._get(url, "user")
 
@@ -99,7 +76,7 @@ class Users(base.ManagerWithFind):
         :rtype: :class:`User`.
         """
         instance_id = base.getid(instance)
-        user = quote_user_host(username, hostname)
+        user = common.quote_user_host(username, hostname)
         user_dict = {}
         if not newuserattr:
             newuserattr = {}
@@ -107,16 +84,16 @@ class Users(base.ManagerWithFind):
             user_dict['user'] = newuserattr
         url = "/instances/%s/users/%s" % (instance_id, user)
         resp, body = self.api.client.put(url, body=user_dict)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
 
     def list_access(self, instance, username, hostname=None):
         """Show all databases the given user has access to. """
         instance_id = base.getid(instance)
-        user = quote_user_host(username, hostname)
+        user = common.quote_user_host(username, hostname)
         url = "/instances/%(instance_id)s/users/%(user)s/databases"
         local_vars = locals()
         resp, body = self.api.client.get(url % local_vars)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
         if not body:
             raise Exception("Call to %s did not return to a body" % url)
         return [databases.Database(self, db) for db in body['databases']]
@@ -124,22 +101,22 @@ class Users(base.ManagerWithFind):
     def grant(self, instance, username, databases, hostname=None):
         """Allow an existing user permissions to access a database."""
         instance_id = base.getid(instance)
-        user = quote_user_host(username, hostname)
+        user = common.quote_user_host(username, hostname)
         url = "/instances/%(instance_id)s/users/%(user)s/databases"
         dbs = {'databases': [{'name': db} for db in databases]}
         local_vars = locals()
         resp, body = self.api.client.put(url % local_vars, body=dbs)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
 
     def revoke(self, instance, username, database, hostname=None):
         """Revoke from an existing user access permissions to a database."""
         instance_id = base.getid(instance)
-        user = quote_user_host(username, hostname)
+        user = common.quote_user_host(username, hostname)
         url = ("/instances/%(instance_id)s/users/%(user)s/"
                "databases/%(database)s")
         local_vars = locals()
         resp, body = self.api.client.delete(url % local_vars)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
 
     def change_passwords(self, instance, users):
         """Change the password for one or more users."""
@@ -147,4 +124,4 @@ class Users(base.ManagerWithFind):
         user_dict = {"users": users}
         url = "/instances/%s/users" % instance_id
         resp, body = self.api.client.put(url, body=user_dict)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)

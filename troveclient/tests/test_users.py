@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -17,8 +15,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from testtools import TestCase
-from mock import Mock
+import testtools
+import mock
 
 from troveclient.v1 import users
 from troveclient import base
@@ -28,11 +26,11 @@ Unit tests for users.py
 """
 
 
-class UserTest(TestCase):
+class UserTest(testtools.TestCase):
     def setUp(self):
         super(UserTest, self).setUp()
         self.orig__init = users.User.__init__
-        users.User.__init__ = Mock(return_value=None)
+        users.User.__init__ = mock.Mock(return_value=None)
         self.user = users.User()
 
     def tearDown(self):
@@ -44,17 +42,17 @@ class UserTest(TestCase):
         self.assertEqual('<User: user-1>', self.user.__repr__())
 
 
-class UsersTest(TestCase):
+class UsersTest(testtools.TestCase):
     def setUp(self):
         super(UsersTest, self).setUp()
         self.orig__init = users.Users.__init__
-        users.Users.__init__ = Mock(return_value=None)
+        users.Users.__init__ = mock.Mock(return_value=None)
         self.users = users.Users()
-        self.users.api = Mock()
-        self.users.api.client = Mock()
+        self.users.api = mock.Mock()
+        self.users.api.client = mock.Mock()
 
         self.orig_base_getid = base.getid
-        base.getid = Mock(return_value="instance1")
+        base.getid = mock.Mock(return_value="instance1")
 
     def tearDown(self):
         super(UsersTest, self).tearDown()
@@ -62,7 +60,7 @@ class UsersTest(TestCase):
         base.getid = self.orig_base_getid
 
     def _get_mock_method(self):
-        self._resp = Mock()
+        self._resp = mock.Mock()
         self._body = None
         self._url = None
 
@@ -71,7 +69,7 @@ class UsersTest(TestCase):
             self._url = url
             return (self._resp, body)
 
-        return Mock(side_effect=side_effect_func)
+        return mock.Mock(side_effect=side_effect_func)
 
     def _build_fake_user(self, name, hostname=None, password=None,
                          databases=None):
@@ -117,28 +115,14 @@ class UsersTest(TestCase):
         self._resp.status_code = 400
         self.assertRaises(Exception, self.users.delete, 34, 'user1')
 
-    def test__list(self):
-        def side_effect_func(self, val):
-            return val
-
-        key = 'key'
-        body = Mock()
-        body.get = Mock(return_value=[{'href': 'http://test.net/test_file',
-                                       'rel': 'next'}])
-        body.__getitem__ = Mock(return_value=["test-value"])
-
-        resp = Mock()
-        resp.status_code = 200
-        self.users.resource_class = Mock(side_effect=side_effect_func)
-        self.users.api.client.get = Mock(return_value=(resp, body))
-        self.assertEqual(["test-value"], self.users._list('url', key).items)
-
-        self.users.api.client.get = Mock(return_value=(resp, None))
-        self.assertRaises(Exception, self.users._list, 'url', None)
-
     def test_list(self):
-        def side_effect_func(path, user, limit, marker):
-            return path
-
-        self.users._list = Mock(side_effect=side_effect_func)
-        self.assertEqual('/instances/instance1/users', self.users.list(1))
+        page_mock = mock.Mock()
+        self.users._paginated = page_mock
+        self.users.list(1)
+        page_mock.assert_called_with('/instances/instance1/users',
+                                     'users', None, None)
+        limit = 'test-limit'
+        marker = 'test-marker'
+        self.users.list(1, limit, marker)
+        page_mock.assert_called_with('/instances/instance1/users',
+                                     'users', limit, marker)

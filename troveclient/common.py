@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # All Rights Reserved.
@@ -16,22 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import copy
-import json
-import optparse
-import os
-import pickle
-import sys
-
-from troveclient import client
-from troveclient import exceptions
+from troveclient.openstack.common.apiclient import exceptions
 
 from troveclient.openstack.common.py3kcompat import urlutils
 
 
-def check_for_exceptions(resp, body):
+def check_for_exceptions(resp, body, url):
     if resp.status_code in (400, 422, 500):
-        raise exceptions.from_response(resp, body)
+        raise exceptions.from_response(resp, body, url)
 
 
 def limit_url(url, limit=None, marker=None):
@@ -56,8 +46,9 @@ def quote_user_host(user, host):
 
 
 class Paginated(object):
-    """ Pretends to be a list if you iterate over it, but also keeps a
-        next property you can use to get the next page of data. """
+    """Pretends to be a list if you iterate over it, but also keeps a
+       next property you can use to get the next page of data.
+    """
 
     def __init__(self, items=[], next_marker=None, links=[]):
         self.items = items

@@ -1,5 +1,3 @@
-# vim: tabstop=4 shiftwidth=4 softtabstop=4
-
 # Copyright 2011 OpenStack Foundation
 # Copyright 2013 Rackspace Hosting
 # Copyright 2013 Hewlett-Packard Development Company, L.P.
@@ -18,15 +16,10 @@
 #    under the License.
 
 from troveclient import base
+from troveclient import common
 
-from troveclient.common import check_for_exceptions
-from troveclient.common import limit_url
-from troveclient.common import Paginated
-from troveclient.openstack.common.apiclient import exceptions
-from troveclient.openstack.common.py3kcompat import urlutils
-
-
-REBOOT_SOFT, REBOOT_HARD = 'SOFT', 'HARD'
+REBOOT_SOFT = 'SOFT'
+REBOOT_HARD = 'HARD'
 
 
 class Instance(base.Resource):
@@ -59,7 +52,8 @@ class Instances(base.ManagerWithFind):
     resource_class = Instance
 
     def create(self, name, flavor_id, volume=None, databases=None, users=None,
-               restorePoint=None, availability_zone=None):
+               restorePoint=None, availability_zone=None, datastore=None,
+               datastore_version=None, nics=None, configuration=None):
         """
         Create (boot) a new instance.
         """
@@ -67,6 +61,7 @@ class Instances(base.ManagerWithFind):
             "name": name,
             "flavorRef": flavor_id
         }}
+        datastore_obj = {}
         if volume:
             body["instance"]["volume"] = volume
         if databases:
@@ -77,24 +72,29 @@ class Instances(base.ManagerWithFind):
             body["instance"]["restorePoint"] = restorePoint
         if availability_zone:
             body["instance"]["availability_zone"] = availability_zone
+        if datastore:
+            datastore_obj["type"] = datastore
+        if datastore_version:
+            datastore_obj["version"] = datastore_version
+        if datastore_obj:
+            body["instance"]["datastore"] = datastore_obj
+        if nics:
+            body["instance"]["nics"] = nics
+        if configuration:
+            body["instance"]["configuration"] = configuration
 
         return self._create("/instances", body, "instance")
 
-    def _list(self, url, response_key, limit=None, marker=None):
-        resp, body = self.api.client.get(limit_url(url, limit, marker))
-        if not body:
-            raise Exception("Call to " + url + " did not return a body.")
-        links = body.get('links', [])
-        next_links = [link['href'] for link in links if link['rel'] == 'next']
-        next_marker = None
-        for link in next_links:
-            # Extract the marker from the url.
-            parsed_url = urlutils.urlparse(link)
-            query_dict = dict(urlutils.parse_qsl(parsed_url.query))
-            next_marker = query_dict.get('marker', None)
-        instances = body[response_key]
-        instances = [self.resource_class(self, res) for res in instances]
-        return Paginated(instances, next_marker=next_marker, links=links)
+    def modify(self, instance_id, configuration=None):
+        body = {
+            "instance": {
+            }
+        }
+        if configuration is not None:
+            body["instance"]["configuration"] = configuration
+        url = "/instances/%s" % instance_id
+        resp, body = self.api.client.put(url, body=body)
+        common.check_for_exceptions(resp, body, url)
 
     def list(self, limit=None, marker=None):
         """
@@ -102,7 +102,7 @@ class Instances(base.ManagerWithFind):
 
         :rtype: list of :class:`Instance`.
         """
-        return self._list("/instances", "instances", limit, marker)
+        return self._paginated("/instances", "instances", limit, marker)
 
     def get(self, instance):
         """
@@ -113,14 +113,14 @@ class Instances(base.ManagerWithFind):
         return self._get("/instances/%s" % base.getid(instance),
                          "instance")
 
-    def backups(self, instance):
+    def backups(self, instance, limit=None, marker=None):
         """
         Get the list of backups for a specific instance.
 
         :rtype: list of :class:`Backups`.
         """
-        return self._list("/instances/%s/backups" % base.getid(instance),
-                          "backups")
+        url = "/instances/%s/backups" % base.getid(instance)
+        return self._paginated(url, "backups", limit, marker)
 
     def delete(self, instance):
         """
@@ -128,10 +128,9 @@ class Instances(base.ManagerWithFind):
 
         :param instance_id: The instance id to delete
         """
-        resp, body = self.api.client.delete("/instances/%s" %
-                                            base.getid(instance))
-        if resp.status_code in (422, 500):
-            raise exceptions.from_response(resp, body)
+        url = "/instances/%s" % base.getid(instance)
+        resp, body = self.api.client.delete(url)
+        common.check_for_exceptions(resp, body, url)
 
     def _action(self, instance_id, body):
         """
@@ -139,7 +138,7 @@ class Instances(base.ManagerWithFind):
         """
         url = "/instances/%s/action" % instance_id
         resp, body = self.api.client.post(url, body=body)
-        check_for_exceptions(resp, body)
+        common.check_for_exceptions(resp, body, url)
         if body:
             return self.resource_class(self, body, loaded=True)
         return body
@@ -167,6 +166,15 @@ class Instances(base.ManagerWithFind):
         body = {'restart': {}}
         self._action(instance_id, body)
 
+    def configuration(self, instance):
+        """
+        Get a configuration on instances.
+
+        :rtype: :class:`Instance`
+        """
+        return self._get("/instances/%s/configuration" % base.getid(instance),
+                         "instance")
+
 
 Instances.resize_flavor = Instances.resize_instance
 
@@ -180,3 +188,4 @@ class InstanceStatus(object):
     REBOOT = "REBOOT"
     RESIZE = "RESIZE"
     SHUTDOWN = "SHUTDOWN"
+    RESTART_REQUIRED = "RESTART_REQUIRED"

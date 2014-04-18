@@ -17,6 +17,7 @@ hosted on `Github`_. Patches must be submitted using `Gerrit`_, *not* Github
 pull requests.
 
 .. _Github: https://github.com/openstack/python-troveclient
+.. _Releases: https://github.com/openstack/python-troveclient/releases
 .. _Launchpad: https://launchpad.net/python-troveclient
 .. _Gerrit: http://wiki.openstack.org/GerritWorkflow
 
@@ -61,11 +62,11 @@ You'll find complete documentation on the shell by running
                   [--os-tenant-name <auth-tenant-name>]
                   [--os-tenant-id <auth-tenant-id>] [--os-auth-url <auth-url>]
                   [--os-region-name <region-name>] [--service-type <service-type>]
-                  [--service-name <service-name>]
+                  [--service-name <service-name>] [--bypass-url <bypass-url>]
                   [--database-service-name <database-service-name>]
                   [--endpoint-type <endpoint-type>]
                   [--os-database-api-version <database-api-ver>]
-                  [--os-cacert <ca-certificate>] [--retries <retries>]
+                  [--os-cacert <ca-certificate>] [--retries <retries>] [--json]
                   <subcommand> ...
 
      Command-line interface to the OpenStack Trove API.
@@ -74,19 +75,48 @@ You'll find complete documentation on the shell by running
        <subcommand>
          backup-create       Creates a backup.
          backup-delete       Deletes a backup.
-         backup-list         List available backups.
+         backup-list         Lists available backups.
          backup-list-instance
-                             List available backups for an instance.
-         backup-show         Show details of a backup.
+                             Lists available backups for an instance.
+         backup-show         Shows details of a backup.
+         configuration-attach
+                             Attaches a configuration group to an instance.
+         configuration-create
+                             Creates a configuration group.
+         configuration-default
+                             Shows the default configuration of an instance.
+         configuration-delete
+                             Deletes a configuration group.
+         configuration-detach
+                             Detaches a configuration group from an instance.
+         configuration-instances
+                             Lists all instances associated with a configuration
+                             group.
+         configuration-list  Lists all configuration groups.
+         configuration-parameter-list
+                             Lists available parameters for a configuration group.
+         configuration-parameter-show
+                             Shows details of a configuration parameter.
+         configuration-patch
+                             Patches a configuration group.
+         configuration-show  Shows details of a configuration group.
+         configuration-update
+                             Updates a configuration group.
          create              Creates a new instance.
          database-create     Creates a database on an instance.
          database-delete     Deletes a database.
          database-list       Lists available databases on an instance.
+         datastore-list      Lists available datastores.
+         datastore-show      Shows details of a datastore.
+         datastore-version-list
+                             Lists available versions for a datastore.
+         datastore-version-show
+                             Shows details of a datastore version.
          delete              Deletes an instance.
          flavor-list         Lists available flavors.
-         flavor-show         Show details of a flavor.
+         flavor-show         Shows details of a flavor.
          limit-list          Lists the limits for a tenant.
-         list                List all the instances.
+         list                Lists all the instances.
          resize-flavor       Resizes the flavor of an instance.
          resize-volume       Resizes the volume size of an instance.
          restart             Restarts the instance.
@@ -97,7 +127,7 @@ You'll find complete documentation on the shell by running
                              Deletes a security group rule.
          secgroup-list       Lists all security groups.
          secgroup-show       Shows details about a security group.
-         show                Show details of an instance.
+         show                Shows details of an instance.
          user-create         Creates a user.
          user-delete         Deletes a user from the instance.
          user-grant-access   Grants access to a database(s) for a user.
@@ -107,13 +137,13 @@ You'll find complete documentation on the shell by running
          user-show-access    Gets a users access from the instance.
          user-update-attributes
                              Updates a users attributes from the instance.
-         bash-completion     Print arguments for bash_completion.
-         help                Display help about this program or one of its
+         bash-completion     Prints arguments for bash_completion.
+         help                Displays help about this program or one of its
                              subcommands.
 
      Optional arguments:
        --version             show program's version number and exit
-       --debug               Print debugging output
+       --debug               Print debugging output.
        --os-username <auth-user-name>
                              Defaults to env[OS_USERNAME].
        --os-password <auth-password>
@@ -127,19 +157,25 @@ You'll find complete documentation on the shell by running
        --os-region-name <region-name>
                              Defaults to env[OS_REGION_NAME].
        --service-type <service-type>
-                             Defaults to database for most actions
+                             Defaults to database for most actions.
        --service-name <service-name>
-                             Defaults to env[TROVE_SERVICE_NAME]
+                             Defaults to env[TROVE_SERVICE_NAME].
+       --bypass-url <bypass-url>
+                             Defaults to env[TROVE_BYPASS_URL].
        --database-service-name <database-service-name>
-                             Defaults to env[TROVE_DATABASE_SERVICE_NAME]
+                             Defaults to env[TROVE_DATABASE_SERVICE_NAME].
        --endpoint-type <endpoint-type>
                              Defaults to env[TROVE_ENDPOINT_TYPE] or publicURL.
        --os-database-api-version <database-api-ver>
-                             Accepts 1,defaults to env[OS_DATABASE_API_VERSION].
+                             Accepts 1, defaults to env[OS_DATABASE_API_VERSION].
        --os-cacert <ca-certificate>
                              Specify a CA bundle file to use in verifying a TLS
-                             (https) server certificate. Defaults to env[OS_CACERT]
+                             (https) server certificate. Defaults to
+                             env[OS_CACERT].
        --retries <retries>   Number of retries.
+       --json, --os-json-output
+                             Output json instead of prettyprint. Defaults to
+                             env[OS_JSON_OUTPUT].
 
 Python API
 ----------
