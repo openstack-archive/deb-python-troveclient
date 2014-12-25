@@ -17,12 +17,12 @@
 from __future__ import print_function
 
 import os
+import simplejson as json
 import sys
 import uuid
-import simplejson as json
 
-import six
 import prettytable
+import six
 
 from troveclient.openstack.common.apiclient import exceptions
 from troveclient.openstack.common import strutils
@@ -37,8 +37,9 @@ def arg(*args, **kwargs):
 
 
 def env(*vars, **kwargs):
-    """
-    returns the first environment variable set
+    """Returns environment variables.
+
+    Returns the first environment variable set
     if none are non-empty, defaults to '' or keyword arg default
     """
     for v in vars:
@@ -63,8 +64,8 @@ def add_arg(f, *args, **kwargs):
 
 
 def unauthenticated(f):
-    """
-    Adds 'unauthenticated' attribute to decorated function.
+    """Adds 'unauthenticated' attribute to decorated function.
+
     Usage:
         @unauthenticated
         def mymethod(f):
@@ -75,7 +76,8 @@ def unauthenticated(f):
 
 
 def isunauthenticated(f):
-    """
+    """Decorator to mark authentication-non-required.
+
     Checks to see if the function is marked as not requiring authentication
     with the @unauthenticated decorator. Returns True if decorator is
     set to True, False otherwise.
@@ -84,8 +86,8 @@ def isunauthenticated(f):
 
 
 def service_type(stype):
-    """
-    Adds 'service_type' attribute to decorated function.
+    """Adds 'service_type' attribute to decorated function.
+
     Usage:
         @service_type('database')
         def mymethod(f):
@@ -98,9 +100,7 @@ def service_type(stype):
 
 
 def get_service_type(f):
-    """
-    Retrieves service type from function
-    """
+    """Retrieves service type from function."""
     return getattr(f, 'service_type', None)
 
 
@@ -113,11 +113,12 @@ def translate_keys(collection, convert):
 
 
 def _output_override(objs, print_as):
-    """
+    """Output override flag checking.
+
     If an output override global flag is set, print with override
     raise BaseException if no printing was overridden.
     """
-    if 'json_output' in globals() and json_output:
+    if globals().get('json_output', False):
         if print_as == 'list':
             new_objs = []
             for o in objs:
@@ -138,35 +139,54 @@ def _print(pt, order):
         print(strutils.safe_encode(pt.get_string(sortby=order)))
 
 
-def print_list(objs, fields, formatters={}, order_by=None, obj_is_dict=False):
+def print_list(objs, fields, formatters={}, order_by=None, obj_is_dict=False,
+               labels={}):
     try:
         _output_override(objs, 'list')
         return
     except BaseException:
         pass
-    mixed_case_fields = []
-    pt = prettytable.PrettyTable([f for f in fields], caching=False)
-    pt.aligns = ['l' for f in fields]
+    # Make nice labels from the fields, if not provided in the labels arg
+    if not labels:
+        labels = {}
+    for field in fields:
+        if field not in labels:
+            # No underscores (use spaces instead) and uppercase any ID's
+            label = field.replace("_", " ").replace("id", "ID")
+            # Uppercase anything else that's less than 3 chars
+            if len(label) < 3:
+                label = label.upper()
+            # Capitalize each word otherwise
+            else:
+                label = ' '.join(word[0].upper() + word[1:]
+                                 for word in label.split())
+            labels[field] = label
 
-    for o in objs:
+    pt = prettytable.PrettyTable(
+        [labels[field] for field in fields], caching=False)
+    # set the default alignment to left-aligned
+    align = dict((labels[field], 'l') for field in fields)
+    set_align = True
+    for obj in objs:
         row = []
         for field in fields:
-            if field in formatters:
-                row.append(formatters[field](o))
+            if formatters and field in formatters:
+                row.append(formatters[field](obj))
+            elif obj_is_dict:
+                data = obj.get(field, '')
             else:
-                if field in mixed_case_fields:
-                    field_name = field.replace(' ', '_')
-                else:
-                    field_name = field.lower().replace(' ', '_')
-                if not obj_is_dict:
-                    data = getattr(o, field_name, '')
-                else:
-                    data = o.get(field_name, '')
-                row.append(data)
+                data = getattr(obj, field, '')
+            row.append(data)
+            # set the alignment to right-aligned if it's a numeric
+            if set_align and hasattr(data, '__int__'):
+                align[labels[field]] = 'r'
+        set_align = False
         pt.add_row(row)
+    pt._align = align
 
-    if order_by is None:
+    if not order_by:
         order_by = fields[0]
+    order_by = labels[order_by]
     _print(pt, order_by)
 
 
@@ -177,7 +197,7 @@ def print_dict(d, property="Property"):
     except BaseException:
         pass
     pt = prettytable.PrettyTable([property, 'Value'], caching=False)
-    pt.aligns = ['l', 'l']
+    pt.align = 'l'
     [pt.add_row(list(r)) for r in six.iteritems(d)]
     _print(pt, property)
 
@@ -261,7 +281,8 @@ def safe_issubclass(*args):
 # http://code.activestate.com/recipes/
 #   577257-slugify-make-a-string-usable-in-a-url-or-filename/
 def slugify(value):
-    """
+    """Converts a string usable in a url or filename.
+
     Normalizes string, converts to lowercase, removes non-alpha characters,
     and converts spaces to hyphens.
 

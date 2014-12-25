@@ -24,12 +24,12 @@ import hashlib
 import os
 
 import six
+from six.moves.urllib import parse
 
+from troveclient import common
 from troveclient.openstack.common.apiclient import base
 from troveclient.openstack.common.apiclient import exceptions
 from troveclient import utils
-from troveclient import common
-from troveclient.openstack.common.py3kcompat import urlutils
 
 # Python 2.4 compat
 try:
@@ -40,9 +40,10 @@ except NameError:
 
 
 def getid(obj):
-    """
-    Abstracts the common pattern of allowing both an object or an object's ID
-    as a parameter when dealing with relationships.
+    """Retrieves an id from object or integer.
+
+    Abstracts the common pattern of allowing both an object or an object's
+    ID as a parameter when dealing with relationships.
     """
     try:
         return obj.id
@@ -51,17 +52,22 @@ def getid(obj):
 
 
 class Manager(utils.HookableMixin):
-    """
-    Managers interact with a particular type of API (servers, flavors, images,
-    etc.) and provide CRUD operations for them.
+    """Manager defining CRUD operations for API.
+
+    Managers interact with a particular type of API (servers, flavors,
+    images, etc.) and provide CRUD operations for them.
     """
     resource_class = None
 
     def __init__(self, api):
         self.api = api
 
-    def _paginated(self, url, response_key, limit=None, marker=None):
-        resp, body = self.api.client.get(common.limit_url(url, limit, marker))
+    def _paginated(self, url, response_key, limit=None, marker=None,
+                   query_strings=None):
+        query_strings = query_strings or {}
+        url = common.append_query_strings(url, limit=limit, marker=marker,
+                                          **query_strings)
+        resp, body = self.api.client.get(url)
         if not body:
             raise Exception("Call to " + url + " did not return a body.")
         links = body.get('links', [])
@@ -69,8 +75,8 @@ class Manager(utils.HookableMixin):
         next_marker = None
         for link in next_links:
             # Extract the marker from the url.
-            parsed_url = urlutils.urlparse(link)
-            query_dict = dict(urlutils.parse_qsl(parsed_url.query))
+            parsed_url = parse.urlparse(link)
+            query_dict = dict(parse.parse_qsl(parsed_url.query))
             next_marker = query_dict.get('marker')
         data = [self.resource_class(self, res) for res in body[response_key]]
         return common.Paginated(data, next_marker=next_marker, links=links)
@@ -101,7 +107,8 @@ class Manager(utils.HookableMixin):
 
     @contextlib.contextmanager
     def completion_cache(self, cache_type, obj_class, mode):
-        """
+        """Bash-completion cache.
+
         The completion cache store items that can be used for bash
         autocompletion, like UUIDs or human-friendly IDs.
 
@@ -183,19 +190,20 @@ class Manager(utils.HookableMixin):
         resp, body = self.api.client.put(url, body=body)
         return body
 
+    def _edit(self, url, body):
+        resp, body = self.api.client.patch(url, body=body)
+        return body
+
 
 class ManagerWithFind(six.with_metaclass(abc.ABCMeta, Manager)):
-    """
-    Like a `Manager`, but with additional `find()`/`findall()` methods.
-    """
+    """Like a `Manager`, but with additional `find()`/`findall()` methods."""
 
     @abc.abstractmethod
     def list(self):
         pass
 
     def find(self, **kwargs):
-        """
-        Find a single item with attributes matching ``**kwargs``.
+        """Find a single item with attributes matching ``**kwargs``.
 
         This isn't very efficient: it loads the entire list then filters on
         the Python side.
@@ -211,8 +219,7 @@ class ManagerWithFind(six.with_metaclass(abc.ABCMeta, Manager)):
             return matches[0]
 
     def findall(self, **kwargs):
-        """
-        Find all items with attributes matching ``**kwargs``.
+        """Find all items with attributes matching ``**kwargs``.
 
         This isn't very efficient: it loads the entire list then filters on
         the Python side.
@@ -232,10 +239,9 @@ class ManagerWithFind(six.with_metaclass(abc.ABCMeta, Manager)):
 
 
 class Resource(base.Resource):
-    """
-    A resource represents a particular instance of an object (server, flavor,
-    etc). This is pretty much just a bag for attributes.
+    """A resource represents a particular instance of an object like server.
 
+    This is pretty much just a bag for attributes.
     :param manager: Manager object
     :param info: dictionary representing resource attributes
     :param loaded: prevent lazy-loading if set to True

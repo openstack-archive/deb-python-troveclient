@@ -16,8 +16,8 @@
 import httplib2
 import logging
 import os
-import time
 import sys
+import time
 
 try:
     import json
@@ -277,19 +277,18 @@ class TroveHTTPClient(httplib2.Http):
 
 
 class Dbaas(object):
-    """
-    Top-level object to access the Rackspace Database as a Service API.
+    """Top-level object to access the Rackspace Database as a Service API.
 
     Create an instance with your creds::
 
-        >>> red = Dbaas(USERNAME, API_KEY, TENANT, AUTH_URL, SERVICE_NAME, \
+        >> red = Dbaas(USERNAME, API_KEY, TENANT, AUTH_URL, SERVICE_NAME, \
                         SERVICE_URL)
 
     Then call methods on its managers::
 
-        >>> red.instances.list()
+        >> red.instances.list()
         ...
-        >>> red.flavors.list()
+        >> red.flavors.list()
         ...
 
     &c.
@@ -303,6 +302,7 @@ class Dbaas(object):
         from troveclient.compat import versions
         from troveclient.v1 import accounts
         from troveclient.v1 import backups
+        from troveclient.v1 import clusters
         from troveclient.v1 import configurations
         from troveclient.v1 import databases
         from troveclient.v1 import datastores
@@ -312,6 +312,7 @@ class Dbaas(object):
         from troveclient.v1 import instances
         from troveclient.v1 import limits
         from troveclient.v1 import management
+        from troveclient.v1 import metadata
         from troveclient.v1 import quota
         from troveclient.v1 import root
         from troveclient.v1 import security_groups
@@ -335,12 +336,16 @@ class Dbaas(object):
         self.hosts = hosts.Hosts(self)
         self.quota = quota.Quotas(self)
         self.backups = backups.Backups(self)
+        self.clusters = clusters.Clusters(self)
         self.security_groups = security_groups.SecurityGroups(self)
         self.security_group_rules = security_groups.SecurityGroupRules(self)
         self.datastores = datastores.Datastores(self)
         self.datastore_versions = datastores.DatastoreVersions(self)
+        self.datastore_version_members = (datastores.
+                                          DatastoreVersionMembers(self))
         self.storage = storage.StorageInfo(self)
         self.management = management.Management(self)
+        self.mgmt_cluster = management.MgmtClusters(self)
         self.mgmt_flavor = management.MgmtFlavors(self)
         self.accounts = accounts.Accounts(self)
         self.diagnostics = diagnostics.DiagnosticsInterrogator(self)
@@ -348,6 +353,8 @@ class Dbaas(object):
         self.configurations = configurations.Configurations(self)
         config_parameters = configurations.ConfigurationParameters(self)
         self.configuration_parameters = config_parameters
+        self.metadata = metadata.Metadata(self)
+        self.mgmt_configs = management.MgmtConfigurationParameters(self)
 
         class Mgmt(object):
             def __init__(self, dbaas):
@@ -365,8 +372,7 @@ class Dbaas(object):
         return self.client.get_timings()
 
     def authenticate(self):
-        """
-        Authenticate against the server.
+        """Authenticate against the server.
 
         This is called to perform an authentication to retrieve a token.
 

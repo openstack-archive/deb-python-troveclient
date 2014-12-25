@@ -15,11 +15,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import testtools
 import mock
+import testtools
 
-from troveclient.v1 import users
 from troveclient import base
+from troveclient.v1 import users
 
 """
 Unit tests for users.py
@@ -126,3 +126,15 @@ class UsersTest(testtools.TestCase):
         self.users.list(1, limit, marker)
         page_mock.assert_called_with('/instances/instance1/users',
                                      'users', limit, marker)
+
+    def test_update_no_changes(self):
+        self.users.api.client.post = self._get_mock_method()
+        self._resp.status_code = 200
+        username = 'upd_user'
+        user = self._build_fake_user(username)
+
+        self.users.create(99, [user])
+        instance = 'instance1'
+        newuserattr = None
+        self.assertRaises(Exception, self.users.update_attributes, instance,
+                          username, newuserattr)

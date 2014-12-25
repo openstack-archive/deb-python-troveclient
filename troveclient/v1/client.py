@@ -16,28 +16,30 @@
 
 from troveclient import client as trove_client
 from troveclient.v1 import backups
+from troveclient.v1 import clusters
 from troveclient.v1 import configurations
 from troveclient.v1 import databases
 from troveclient.v1 import datastores
 from troveclient.v1 import flavors
 from troveclient.v1 import instances
 from troveclient.v1 import limits
+# from troveclient.v1 import management
+from troveclient.v1 import metadata
 from troveclient.v1 import root
 from troveclient.v1 import security_groups
 from troveclient.v1 import users
 
 
 class Client(object):
-    """
-    Top-level object to access the OpenStack Database API.
+    """Top-level object to access the OpenStack Database API.
 
     Create an instance with your creds::
 
-        >>> client = Client(USERNAME, PASSWORD, PROJECT_ID, AUTH_URL)
+        >> client = Client(USERNAME, PASSWORD, PROJECT_ID, AUTH_URL)
 
     Then call methods on its managers::
 
-        >>> client.instances.list()
+        >> client.instances.list()
         ...
 
     """
@@ -45,11 +47,13 @@ class Client(object):
     def __init__(self, username, password, project_id=None, auth_url='',
                  insecure=False, timeout=None, tenant_id=None,
                  proxy_tenant_id=None, proxy_token=None, region_name=None,
-                 endpoint_type='publicURL', extensions=None,
+                 endpoint_type=None, extensions=None,
                  service_type='database', service_name=None,
                  database_service_name=None, retries=None,
                  http_log_debug=False,
-                 cacert=None, bypass_url=None):
+                 cacert=None, bypass_url=None,
+                 auth_system='keystone', auth_plugin=None, session=None,
+                 auth=None):
         # self.limits = limits.LimitsManager(self)
 
         # extensions
@@ -57,6 +61,7 @@ class Client(object):
         self.users = users.Users(self)
         self.databases = databases.Databases(self)
         self.backups = backups.Backups(self)
+        self.clusters = clusters.Clusters(self)
         self.instances = instances.Instances(self)
         self.limits = limits.Limits(self)
         self.root = root.Root(self)
@@ -67,15 +72,19 @@ class Client(object):
         self.configurations = configurations.Configurations(self)
         config_parameters = configurations.ConfigurationParameters(self)
         self.configuration_parameters = config_parameters
+        self.metadata = metadata.Metadata(self)
 
-        #self.hosts = Hosts(self)
-        #self.quota = Quotas(self)
-        #self.storage = StorageInfo(self)
-        #self.management = Management(self)
-        #self.mgmt_flavor = MgmtFlavors(self)
-        #self.accounts = Accounts(self)
-        #self.diagnostics = DiagnosticsInterrogator(self)
-        #self.hwinfo = HwInfoInterrogator(self)
+        # self.hosts = Hosts(self)
+        # self.quota = Quotas(self)
+        # self.storage = StorageInfo(self)
+        # self.management = Management(self)
+        # self.management = MgmtClusters(self)
+        # self.mgmt_flavor = MgmtFlavors(self)
+        # self.accounts = Accounts(self)
+        # self.diagnostics = DiagnosticsInterrogator(self)
+        # self.hwinfo = HwInfoInterrogator(self)
+        # self.mgmt_config_params =
+        #       management.MgmtConfigurationParameters(self)
 
         # Add in any extensions...
         if extensions:
@@ -84,11 +93,11 @@ class Client(object):
                     setattr(self, extension.name,
                             extension.manager_class(self))
 
-        self.client = trove_client.HTTPClient(
-            username,
-            password,
-            project_id,
-            auth_url,
+        self.client = trove_client._construct_http_client(
+            username=username,
+            password=password,
+            project_id=project_id,
+            auth_url=auth_url,
             insecure=insecure,
             timeout=timeout,
             tenant_id=tenant_id,
@@ -102,11 +111,14 @@ class Client(object):
             retries=retries,
             http_log_debug=http_log_debug,
             cacert=cacert,
-            bypass_url=bypass_url)
+            bypass_url=bypass_url,
+            auth_system=auth_system,
+            auth_plugin=auth_plugin,
+            session=session,
+            auth=auth)
 
     def authenticate(self):
-        """
-        Authenticate against the server.
+        """Authenticate against the server.
 
         Normally this is called automatically when you first access the API,
         but you can call this method to force authentication right now.

@@ -18,12 +18,11 @@ import optparse
 import os
 import pickle
 import six
+from six.moves.urllib import parse
 import sys
 
 from troveclient.compat import client
 from troveclient.compat import exceptions
-
-from troveclient.openstack.common.py3kcompat import urlutils
 
 
 def methods_of(obj):
@@ -43,7 +42,7 @@ def check_for_exceptions(resp, body):
 
 
 def print_actions(cmd, actions):
-    """Print help for the command with list of options and description"""
+    """Print help for the command with list of options and description."""
     print("Available actions for '%s' cmd:" % cmd)
     for k, v in six.iteritems(actions):
         print("\t%-20s%s" % (k, v.__doc__))
@@ -51,7 +50,7 @@ def print_actions(cmd, actions):
 
 
 def print_commands(commands):
-    """Print the list of available commands and description"""
+    """Print the list of available commands and description."""
 
     print("Available commands")
     for k, v in six.iteritems(commands):
@@ -74,9 +73,9 @@ def limit_url(url, limit=None, marker=None):
 def quote_user_host(user, host):
     quoted = ''
     if host:
-        quoted = urlutils.quote("%s@%s" % (user, host))
+        quoted = parse.quote("%s@%s" % (user, host))
     else:
-        quoted = urlutils.quote("%s" % user)
+        quoted = parse.quote("%s" % user)
     return quoted.replace('.', '%2e')
 
 
@@ -331,7 +330,7 @@ class CommandsBase(object):
 
 
 class Auth(CommandsBase):
-    """Authenticate with your username and api key"""
+    """Authenticate with your username and api key."""
     params = [
         'apikey',
         'auth_strategy',
@@ -351,7 +350,7 @@ class Auth(CommandsBase):
         self.dbaas = None
 
     def login(self):
-        """Login to retrieve an auth token to use for other api calls"""
+        """Login to retrieve an auth token to use for other api calls."""
         self._require('username', 'apikey', 'tenant_id', 'auth_url')
         try:
             self.dbaas = self._get_client()

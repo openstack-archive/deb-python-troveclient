@@ -20,47 +20,49 @@ from troveclient import common
 
 
 class Backup(base.Resource):
-    """
-    Backup is a resource used to hold backup information.
-    """
+    """Backup is a resource used to hold backup information."""
     def __repr__(self):
         return "<Backup: %s>" % self.name
 
 
 class Backups(base.ManagerWithFind):
-    """
-    Manage :class:`Backups` information.
-    """
+    """Manage :class:`Backups` information."""
 
     resource_class = Backup
 
     def get(self, backup):
-        """
-        Get a specific backup.
+        """Get a specific backup.
 
         :rtype: :class:`Backups`
         """
         return self._get("/backups/%s" % base.getid(backup),
                          "backup")
 
-    def list(self, limit=None, marker=None):
-        """
-        Get a list of all backups.
+    def list(self, limit=None, marker=None, datastore=None):
+        """Get a list of all backups.
 
         :rtype: list of :class:`Backups`.
         """
-        return self._paginated("/backups", "backups", limit, marker)
+        query_strings = {}
+        if datastore:
+            query_strings = {'datastore': datastore}
 
-    def create(self, name, instance, description=None, parent_id=None):
-        """
-        Create a new backup from the given instance.
-        """
+        return self._paginated("/backups", "backups", limit, marker,
+                               query_strings)
+
+    def create(self, name, instance=None, description=None, parent_id=None,
+               backup=None,):
+        """Create a new backup from the given instance."""
         body = {
             "backup": {
-                "name": name,
-                "instance": instance
+                "name": name
             }
         }
+
+        if instance:
+            body['backup']['instance'] = instance
+        if backup:
+            body["backup"]['backup'] = backup
         if description:
             body['backup']['description'] = description
         if parent_id:
@@ -68,8 +70,7 @@ class Backups(base.ManagerWithFind):
         return self._create("/backups", body, "backup")
 
     def delete(self, backup_id):
-        """
-        Delete the specified backup.
+        """Delete the specified backup.
 
         :param backup_id: The backup id to delete
         """

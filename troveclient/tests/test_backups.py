@@ -13,8 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import testtools
 import mock
+import testtools
 import uuid
 
 from troveclient.v1 import backups
@@ -74,13 +74,31 @@ class BackupManagerTest(testtools.TestCase):
         self.backups.create(**args)
         create_mock.assert_called_with('/backups', body, 'backup')
 
+    def test_copy(self):
+        create_mock = mock.Mock()
+        self.backups._create = create_mock
+        args = {'name': 'test_backup', 'backup': '1'}
+        body = {'backup': args}
+        self.backups.create(**args)
+        create_mock.assert_called_with('/backups', body, 'backup')
+
     def test_list(self):
         page_mock = mock.Mock()
         self.backups._paginated = page_mock
         limit = "test-limit"
         marker = "test-marker"
         self.backups.list(limit, marker)
-        page_mock.assert_called_with("/backups", "backups", limit, marker)
+        page_mock.assert_called_with("/backups", "backups", limit, marker, {})
+
+    def test_list_by_datastore(self):
+        page_mock = mock.Mock()
+        self.backups._paginated = page_mock
+        limit = "test-limit"
+        marker = "test-marker"
+        datastore = "test-mysql"
+        self.backups.list(limit, marker, datastore)
+        page_mock.assert_called_with("/backups", "backups", limit, marker,
+                                     {'datastore': datastore})
 
     def test_get(self):
         get_mock = mock.Mock()

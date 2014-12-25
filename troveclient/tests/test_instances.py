@@ -15,11 +15,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import testtools
 import mock
+import testtools
 
-from troveclient.v1 import instances
 from troveclient import base
+from troveclient.v1 import instances
 
 """
 Unit tests for instances.py
@@ -61,6 +61,13 @@ class InstanceTest(testtools.TestCase):
         self.instance.id = 1
         self.instance.restart()
         self.assertEqual(1, db_restart_mock.call_count)
+
+    def test_detach_replica(self):
+        db_detach_mock = mock.Mock(return_value=None)
+        self.instance.manager.edit = db_detach_mock
+        self.instance.id = 1
+        self.instance.detach_replica()
+        self.assertEqual(1, db_detach_mock.call_count)
 
 
 class InstancesTest(testtools.TestCase):
@@ -110,8 +117,10 @@ class InstancesTest(testtools.TestCase):
         self.instances._paginated = page_mock
         limit = "test-limit"
         marker = "test-marker"
+        include_clustered = {'include_clustered': False}
         self.instances.list(limit, marker)
-        page_mock.assert_called_with("/instances", "instances", limit, marker)
+        page_mock.assert_called_with("/instances", "instances", limit, marker,
+                                     include_clustered)
 
     def test_get(self):
         def side_effect_func(path, inst):
@@ -176,6 +185,18 @@ class InstancesTest(testtools.TestCase):
         self.instances.modify(123, 321)
         resp.status_code = 500
         self.assertRaises(Exception, self.instances.modify, 'instance1')
+
+    def test_edit(self):
+        resp = mock.Mock()
+        resp.status_code = 204
+        body = None
+        self.instances.api.client.patch = mock.Mock(return_value=(resp, body))
+        self.instances.edit(123)
+        self.instances.edit(123, 321)
+        self.instances.edit(123, 321, 'name-1234')
+        self.instances.edit(123, 321, 'name-1234', True)
+        resp.status_code = 500
+        self.assertRaises(Exception, self.instances.edit, 'instance1')
 
     def test_configuration(self):
         def side_effect_func(path, inst):

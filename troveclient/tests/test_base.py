@@ -18,12 +18,12 @@
 import contextlib
 import os
 
-import testtools
 import mock
+import testtools
 
 from troveclient import base
-from troveclient.openstack.common.apiclient import exceptions
 from troveclient import common
+from troveclient.openstack.common.apiclient import exceptions
 from troveclient import utils
 
 """
@@ -279,9 +279,14 @@ class MangerPaginationTests(ManagerTest):
 
         def side_effect(url):
             if url == self.url:
-                return (None, self.body)
-            if url == self.next_url:
-                return (None, self.next_body)
+                return None, self.body
+            # In python 3 the order in the dictionary is not constant
+            # between runs. So we cant rely on the URL params to be
+            # in the same order
+            if ('marker=%s' % self.marker in url and
+                    'limit=%s' % self.limit in url):
+                self.next_url = url
+                return None, self.next_body
 
         self.manager.api.client.get = mock.Mock(side_effect=side_effect)
 
@@ -455,8 +460,8 @@ class ResourceTest(testtools.TestCase):
         robj._add_details(info_)
         self.assertEqual(info_["test_attr"], robj.__getattr__("test_attr"))
 
-        #TODO(dmakogon): looks like causing infinite recursive calls
-        #robj.__getattr__("test_non_exist_attr")
+        # TODO(dmakogon): looks like causing infinite recursive calls
+        # robj.__getattr__("test_non_exist_attr")
 
     def test___repr__(self):
         robj = self.get_mock_resource_obj()
@@ -472,7 +477,7 @@ class ResourceTest(testtools.TestCase):
         manager.get = None
 
         robj.manager = object()
-        robj.get()
+        robj._get()
 
         manager = mock.Mock()
         robj.manager = mock.Mock()
@@ -481,7 +486,7 @@ class ResourceTest(testtools.TestCase):
         new = mock.Mock()
         new._info = {"name": "test-human-id", "test_attr": 5}
         robj.manager.get = mock.Mock(return_value=new)
-        robj.get()
+        robj._get()
         self.assertEqual("test-human-id", robj.name)
         self.assertEqual(5, robj.test_attr)
 
@@ -511,15 +516,7 @@ class ResourceTest(testtools.TestCase):
     def test_is_loaded(self):
         robj = self.get_mock_resource_obj()
         robj._loaded = True
-        self.assertTrue(robj.is_loaded())
+        self.assertTrue(robj.is_loaded)
 
         robj._loaded = False
-        self.assertFalse(robj.is_loaded())
-
-    def test_set_loaded(self):
-        robj = self.get_mock_resource_obj()
-        robj.set_loaded(True)
-        self.assertTrue(robj._loaded)
-
-        robj.set_loaded(False)
-        self.assertFalse(robj._loaded)
+        self.assertFalse(robj.is_loaded)

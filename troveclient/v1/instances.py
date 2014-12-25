@@ -23,9 +23,7 @@ REBOOT_HARD = 'HARD'
 
 
 class Instance(base.Resource):
-    """
-    An Instance is an opaque instance used to store Database instances.
-    """
+    """An Instance is an opaque instance used to store Database instances."""
     def __repr__(self):
         return "<Instance: %s>" % self.name
 
@@ -33,30 +31,29 @@ class Instance(base.Resource):
         return self.manager.databases.list(self)
 
     def delete(self):
-        """
-        Delete the instance.
-        """
+        """Delete the instance."""
         self.manager.delete(self)
 
     def restart(self):
-        """
-        Restart the database instance
-        """
+        """Restart the database instance."""
         self.manager.restart(self.id)
+
+    def detach_replica(self):
+        """Stops the replica database from being replicated to."""
+        self.manager.edit(self.id, detach_replica_source=True)
 
 
 class Instances(base.ManagerWithFind):
-    """
-    Manage :class:`Instance` resources.
-    """
+    """Manage :class:`Instance` resources."""
     resource_class = Instance
 
+    # TODO(SlickNik): Remove slave_of param after updating tests to replica_of
     def create(self, name, flavor_id, volume=None, databases=None, users=None,
                restorePoint=None, availability_zone=None, datastore=None,
-               datastore_version=None, nics=None, configuration=None):
-        """
-        Create (boot) a new instance.
-        """
+               datastore_version=None, nics=None, configuration=None,
+               replica_of=None, slave_of=None):
+        """Create (boot) a new instance."""
+
         body = {"instance": {
             "name": name,
             "flavorRef": flavor_id
@@ -82,6 +79,8 @@ class Instances(base.ManagerWithFind):
             body["instance"]["nics"] = nics
         if configuration:
             body["instance"]["configuration"] = configuration
+        if replica_of or slave_of:
+            body["instance"]["replica_of"] = replica_of or slave_of
 
         return self._create("/instances", body, "instance")
 
@@ -96,17 +95,41 @@ class Instances(base.ManagerWithFind):
         resp, body = self.api.client.put(url, body=body)
         common.check_for_exceptions(resp, body, url)
 
-    def list(self, limit=None, marker=None):
-        """
-        Get a list of all instances.
+    def edit(self, instance_id, configuration=None, name=None,
+             detach_replica_source=False, remove_configuration=False):
+        body = {
+            "instance": {
+            }
+        }
+        if configuration and remove_configuration:
+            raise Exception("Cannot attach and detach configuration "
+                            "simultaneosly.")
+        if remove_configuration:
+            body["instance"]["configuration"] = None
+        if configuration is not None:
+            body["instance"]["configuration"] = configuration
+        if name is not None:
+            body["instance"]["name"] = name
+        if detach_replica_source:
+            # TODO(glucas): Remove slave_of after updating trove
+            # (see trove.instance.service.InstanceController#edit)
+            body["instance"]["slave_of"] = None
+            body["instance"]["replica_of"] = None
+
+        url = "/instances/%s" % instance_id
+        resp, body = self.api.client.patch(url, body=body)
+        common.check_for_exceptions(resp, body, url)
+
+    def list(self, limit=None, marker=None, include_clustered=False):
+        """Get a list of all instances.
 
         :rtype: list of :class:`Instance`.
         """
-        return self._paginated("/instances", "instances", limit, marker)
+        return self._paginated("/instances", "instances", limit, marker,
+                               {"include_clustered": include_clustered})
 
     def get(self, instance):
-        """
-        Get a specific instances.
+        """Get a specific instances.
 
         :rtype: :class:`Instance`
         """
@@ -114,8 +137,7 @@ class Instances(base.ManagerWithFind):
                          "instance")
 
     def backups(self, instance, limit=None, marker=None):
-        """
-        Get the list of backups for a specific instance.
+        """Get the list of backups for a specific instance.
 
         :rtype: list of :class:`Backups`.
         """
@@ -123,8 +145,7 @@ class Instances(base.ManagerWithFind):
         return self._paginated(url, "backups", limit, marker)
 
     def delete(self, instance):
-        """
-        Delete the specified instance.
+        """Delete the specified instance.
 
         :param instance_id: The instance id to delete
         """
@@ -133,9 +154,7 @@ class Instances(base.ManagerWithFind):
         common.check_for_exceptions(resp, body, url)
 
     def _action(self, instance_id, body):
-        """
-        Perform a server "action" -- reboot/rebuild/resize/etc.
-        """
+        """Perform a server "action" -- reboot/rebuild/resize/etc."""
         url = "/instances/%s/action" % instance_id
         resp, body = self.api.client.post(url, body=body)
         common.check_for_exceptions(resp, body, url)
@@ -144,22 +163,17 @@ class Instances(base.ManagerWithFind):
         return body
 
     def resize_volume(self, instance_id, volume_size):
-        """
-        Resize the volume on an existing instances
-        """
+        """Resize the volume on an existing instances."""
         body = {"resize": {"volume": {"size": volume_size}}}
         self._action(instance_id, body)
 
     def resize_instance(self, instance_id, flavor_id):
-        """
-        Resize the volume on an existing instances
-        """
+        """Resizes an instance with a new flavor."""
         body = {"resize": {"flavorRef": flavor_id}}
         self._action(instance_id, body)
 
     def restart(self, instance_id):
-        """
-        Restart the database instance.
+        """Restart the database instance.
 
         :param instance_id: The :class:`Instance` (or its ID) to share onto.
         """
@@ -167,16 +181,12 @@ class Instances(base.ManagerWithFind):
         self._action(instance_id, body)
 
     def configuration(self, instance):
-        """
-        Get a configuration on instances.
+        """Get a configuration on instances.
 
         :rtype: :class:`Instance`
         """
         return self._get("/instances/%s/configuration" % base.getid(instance),
                          "instance")
-
-
-Instances.resize_flavor = Instances.resize_instance
 
 
 class InstanceStatus(object):

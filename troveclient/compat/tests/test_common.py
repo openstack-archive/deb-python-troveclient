@@ -13,13 +13,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import sys
-import optparse
-import json
 import collections
+import json
+import optparse
+import sys
 
-import testtools
 import mock
+import testtools
 
 from troveclient.compat import common
 
@@ -54,7 +54,7 @@ class CommonTest(testtools.TestCase):
         status = [400, 422, 500]
         for s in status:
             resp = mock.Mock()
-            #compat still uses status
+            # compat still uses status
             resp.status = s
             self.assertRaises(Exception,
                               common.check_for_exceptions, resp, "body")
@@ -230,8 +230,10 @@ class CommandsBaseTest(testtools.TestCase):
         self.assertIsNone(self.cmd_base._pretty_print(func))
 
     def test__dumps(self):
+        orig_dumps = json.dumps
         json.dumps = mock.Mock(return_value="test-dump")
         self.assertEqual("test-dump", self.cmd_base._dumps("item"))
+        json.dumps = orig_dumps
 
     def test__pretty_list(self):
         func = mock.Mock(return_value=None)
