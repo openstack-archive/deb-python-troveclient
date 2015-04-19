@@ -4,43 +4,47 @@ Priority: extra
 Maintainer: PKG OpenStack <openstack-devel@lists.alioth.debian.org>
 Uploaders: Julien Danjou <acid@debian.org>,
            Thomas Goirand <zigo@debian.org>,
-           Mehdi Abaakouk <sileht@sileht.net>
+           Mehdi Abaakouk <sileht@sileht.net>,
 Build-Depends: debhelper (>= 9),
-               openstack-pkg-tools,
+               dh-python,
+               openstack-pkg-tools (>= 23~),
                python-all (>= 2.6.6-3~),
-               python-pbr
-Build-Depends-Indep: python-babel (>= 1.3),
+               python-pbr,
+               python-sphinx,
+Build-Depends-Indep: python-babel,
+                     python-coverage,
+                     python-hacking,
                      python-httplib2,
-                     python-keystoneclient (>= 1:0.11.1),
-                     python-mock (>= 1.0),
-                     python-prettytable (>= 0.7),
-                     python-simplejson (>= 2.2.0),
-                     python-six (>= 1.7.0),
-                     python-sphinx,
-                     python-subunit (>= 0.0.18),
-                     python-testtools (>= 0.9.32),
-                     python-requests (>= 2.2.0),
-                     subunit (>= 0.0.18),
-                     testrepository (>= 0.0.17)
-Standards-Version: 3.9.4
+                     python-keystoneclient (>= 1:1.1.0),
+                     python-mock,
+                     python-oslo.utils (>= 1.2.0),
+                     python-oslosphinx (>= 2.2.0.0),
+                     python-prettytable,
+                     python-requests,
+                     python-requests-mock (>= 0.5.1),
+                     python-simplejson,
+                     python-six (>= 1.9.0),
+                     python-testtools,
+                     subunit,
+                     testrepository,
+Standards-Version: 3.9.6
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/python-troveclient.git;a=summary
 Vcs-Git: git://anonscm.debian.org/openstack/python-troveclient.git
 Homepage: http://www.openstack.org
 
 Package: python-troveclient
 Architecture: all
-Pre-Depends: dpkg (>= 1.15.6~)
-Depends: python-babel (>= 1.3),
-         python-httplib2,
-         python-keystoneclient (>= 1:0.11.1),
-         python-lxml,
+Pre-Depends: dpkg (>= 1.15.6~),
+Depends: python-babel,
+         python-keystoneclient (>= 1:1.1.0),
+         python-oslo.utils (>= 1.2.0),
          python-pbr,
-         python-prettytable (>= 0.7),
-         python-simplejson (>= 2.2.0),
-         python-six (>= 1.7.0),
-         python-requests (>= 2.2.0),
+         python-prettytable,
+         python-requests,
+         python-simplejson,
+         python-six (>= 1.9.0),
          ${misc:Depends},
-         ${python:Depends}
+         ${python:Depends},
 Description: Client for OpenStack Database as a Service
  Trove is Database as a Service for OpenStack. It's designed to run entirely on
  OpenStack, with the goal of allowing users to quickly and easily utilize the
