@@ -21,6 +21,7 @@ Command-line interface to the OpenStack Trove API.
 from __future__ import print_function
 
 import argparse
+import getpass
 import glob
 import imp
 import itertools
@@ -37,14 +38,17 @@ from keystoneclient.auth.identity.generic import token
 from keystoneclient.auth.identity import v3 as identity
 from keystoneclient import session as ks_session
 
+from oslo.utils import encodeutils
+from oslo.utils import importutils
+
 import troveclient
-import troveclient.extension
+import troveclient.auth_plugin
 
 from troveclient import client
+import troveclient.extension
+from troveclient.i18n import _  # noqa
 from troveclient.openstack.common.apiclient import exceptions as exc
-from troveclient.openstack.common import gettextutils as gtu
-from troveclient.openstack.common.gettextutils import _  # noqa
-from troveclient.openstack.common import strutils
+
 from troveclient import utils
 from troveclient.v1 import shell as shell_v1
 
@@ -54,6 +58,7 @@ DEFAULT_TROVE_ENDPOINT_TYPE = 'publicURL'
 DEFAULT_TROVE_SERVICE_TYPE = 'database'
 
 logger = logging.getLogger(__name__)
+osprofiler_profiler = importutils.try_import("osprofiler.profiler")
 
 
 class TroveClientArgumentParser(argparse.ArgumentParser):
@@ -107,7 +112,10 @@ class OpenStackTroveShell(object):
 
         parser.add_argument('--os-auth-system',
                             metavar='<auth-system>',
-                            default=utils.env('OS_AUTH_SYSTEM'))
+                            default=utils.env('OS_AUTH_SYSTEM'),
+                            help='Defaults to env[OS_AUTH_SYSTEM].')
+        parser.add_argument('--os_auth_system',
+                            help=argparse.SUPPRESS)
 
         parser.add_argument('--service-type',
                             metavar='<service-type>',
@@ -173,7 +181,25 @@ class OpenStackTroveShell(object):
                             help='Output JSON instead of prettyprint. '
                                  'Defaults to env[OS_JSON_OUTPUT].')
 
+        if osprofiler_profiler:
+            parser.add_argument('--profile',
+                                metavar='HMAC_KEY',
+                                default=utils.env('OS_PROFILE_HMACKEY',
+                                                  default=None),
+                                help='HMAC key used to encrypt context '
+                                'data when profiling the performance of an '
+                                'operation.  This key should be set to one of '
+                                'the HMAC keys configured in Trove (they are '
+                                'found in api-paste.ini, typically in '
+                                '/etc/trove).  Without the key, profiling '
+                                'will not be triggered even if it is enabled '
+                                'on the server side. '
+                                'Defaults to env[OS_PROFILE_HMACKEY].')
+
         self._append_global_identity_args(parser)
+
+        # The auth-system-plugins might require some extra options
+        troveclient.auth_plugin.load_auth_system_opts(parser)
 
         return parser
 
@@ -332,6 +358,9 @@ class OpenStackTroveShell(object):
         self.setup_debugging(options.debug)
         self.options = options
 
+        # Discover available auth plugins
+        troveclient.auth_plugin.discover_auth_systems()
+
         # build available subcommands based on version
         self.extensions = self._discover_extensions(
             options.os_database_api_version)
@@ -356,17 +385,20 @@ class OpenStackTroveShell(object):
             self.do_bash_completion(args)
             return 0
 
-        (os_username, os_password, os_tenant_name, os_auth_url,
-         os_region_name, os_tenant_id, endpoint_type, insecure,
-         service_type, service_name, database_service_name,
-         cacert, bypass_url, os_auth_system) = (
-             args.os_username, args.os_password,
-             args.os_tenant_name, args.os_auth_url,
-             args.os_region_name, args.os_tenant_id,
-             args.endpoint_type, args.insecure,
-             args.service_type, args.service_name,
-             args.database_service_name,
-             args.os_cacert, args.bypass_url, args.os_auth_system)
+        os_username = args.os_username
+        os_password = args.os_password
+        os_tenant_name = args.os_tenant_name
+        os_auth_url = args.os_auth_url
+        os_region_name = args.os_region_name
+        os_tenant_id = args.os_tenant_id
+        os_auth_system = args.os_auth_system
+        endpoint_type = args.endpoint_type
+        insecure = args.insecure
+        service_type = args.service_type
+        service_name = args.service_name
+        database_service_name = args.database_service_name
+        cacert = args.os_cacert
+        bypass_url = args.bypass_url
 
         if os_auth_system and os_auth_system != "keystone":
             auth_plugin = troveclient.auth_plugin.load_plugin(os_auth_system)
@@ -384,20 +416,22 @@ class OpenStackTroveShell(object):
         # for os_username or os_password but for compatibility it is not.
 
         if not utils.isunauthenticated(args.func):
-            if not os_username:
-                raise exc.CommandError(
-                    "You must provide a username "
-                    "via either --os-username or env[OS_USERNAME]")
+
+            if auth_plugin:
+                auth_plugin.parse_opts(args)
+
+            if not auth_plugin or not auth_plugin.opts:
+                if not os_username:
+                    raise exc.CommandError(
+                        "You must provide a username "
+                        "via either --os-username or env[OS_USERNAME]")
 
             if not os_password:
-                raise exc.CommandError("You must provide a password "
-                                       "via either --os-password or via "
-                                       "env[OS_PASSWORD]")
+                os_password = getpass.getpass()
 
             if not os_auth_url:
-                raise exc.CommandError(
-                    "You must provide an auth url "
-                    "via either --os-auth-url or env[OS_AUTH_URL]")
+                if os_auth_system and os_auth_system != 'keystone':
+                    os_auth_url = auth_plugin.get_auth_url()
 
         # V3 stuff
         project_info_provided = (self.options.os_tenant_name or
@@ -422,9 +456,12 @@ class OpenStackTroveShell(object):
                   "(env[OS_PROJECT_DOMAIN_NAME])"))
 
         if not os_auth_url:
-            raise exc.CommandError(
-                "You must provide an auth url "
-                "via either --os-auth-url or env[OS_AUTH_URL]")
+            raise exc.CommandError("You must provide an auth url "
+                                   "via either --os-auth-url or "
+                                   "env[OS_AUTH_URL] or specify an "
+                                   "auth_system which defines a default "
+                                   "url with --os-auth-system or "
+                                   "env[OS_AUTH_SYSTEM]")
 
         use_session = True
         if auth_plugin or bypass_url:
@@ -451,6 +488,10 @@ class OpenStackTroveShell(object):
                     project_name=project_name,
                     project_domain_id=args.os_project_domain_id,
                     project_domain_name=args.os_project_domain_name)
+
+        profile = osprofiler_profiler and options.profile
+        if profile:
+            osprofiler_profiler.init(options.profile)
 
         self.cs = client.Client(options.os_database_api_version, os_username,
                                 os_password, os_tenant_name, os_auth_url,
@@ -498,7 +539,14 @@ class OpenStackTroveShell(object):
         else:
             utils.json_output = False
 
-        args.func(self.cs, args)
+        try:
+            args.func(self.cs, args)
+        finally:
+            if profile:
+                trace_id = osprofiler_profiler.get().get_base_id()
+                print("Trace ID: %s" % trace_id)
+                print("To display the trace, use the following command:\n"
+                      "osprofiler trace show --html %s" % trace_id)
 
     def _run_extension_hooks(self, hook_type, *args, **kwargs):
         """Run hooks for all registered extensions."""
@@ -573,7 +621,7 @@ class OpenStackHelpFormatter(argparse.HelpFormatter):
         'trove create <name> <flavor_id> --databases <db_name>'
         """
         if prefix is None:
-            prefix = gtu._('usage: ')
+            prefix = _('usage: ')
 
         # if usage is specified, use that
         if usage is not None:
@@ -676,7 +724,7 @@ def main():
         if sys.version_info >= (3, 0):
             OpenStackTroveShell().main(sys.argv[1:])
         else:
-            OpenStackTroveShell().main(map(strutils.safe_decode,
+            OpenStackTroveShell().main(map(encodeutils.safe_decode,
                                            sys.argv[1:]))
     except KeyboardInterrupt:
         print("... terminating trove client", file=sys.stderr)
@@ -686,7 +734,7 @@ def main():
         message = six.text_type(e)
         if not isinstance(message, six.string_types):
             message = str(message)
-        print("ERROR: %s" % strutils.safe_encode(message), file=sys.stderr)
+        print("ERROR: %s" % encodeutils.safe_encode(message), file=sys.stderr)
         sys.exit(1)
 
 

@@ -22,10 +22,10 @@ OpenStack Client interface. Handles the REST calls and responses.
 from __future__ import print_function
 
 import logging
-import os
 import requests
 
 from keystoneclient import adapter
+from oslo.utils import importutils
 from troveclient.openstack.common.apiclient import client
 from troveclient.openstack.common.apiclient import exceptions
 from troveclient import service_catalog
@@ -49,6 +49,8 @@ except ImportError:
 if not hasattr(urlparse, 'parse_qsl'):
     import cgi
     urlparse.parse_qsl = cgi.parse_qsl
+
+osprofiler_web = importutils.try_import("osprofiler.web")
 
 
 class TroveClientMixin(object):
@@ -77,7 +79,7 @@ class HTTPClient(TroveClientMixin):
                  http_log_debug=False, cacert=None, bypass_url=None,
                  auth_system='keystone', auth_plugin=None):
 
-        if auth_system != 'keystone' and not auth_plugin:
+        if auth_system and auth_system != 'keystone' and not auth_plugin:
             raise exceptions.AuthSystemNotFound(auth_system)
 
         if not auth_url and auth_system and auth_system != 'keystone':
@@ -89,7 +91,8 @@ class HTTPClient(TroveClientMixin):
         self.password = password
         self.projectid = projectid
         self.tenant_id = tenant_id
-        self.auth_url = auth_url.rstrip('/')
+
+        self.auth_url = auth_url.rstrip('/') if auth_url else auth_url
         self.version = 'v1'
         self.region_name = region_name
         self.endpoint_type = endpoint_type
@@ -105,6 +108,8 @@ class HTTPClient(TroveClientMixin):
         self.proxy_tenant_id = proxy_tenant_id
         self.timeout = timeout
         self.bypass_url = bypass_url
+        self.auth_system = auth_system
+        self.auth_plugin = auth_plugin
 
         if insecure:
             self.verify_cert = False
@@ -157,6 +162,8 @@ class HTTPClient(TroveClientMixin):
         kwargs.setdefault('headers', kwargs.get('headers', {}))
         kwargs['headers']['User-Agent'] = self.USER_AGENT
         kwargs['headers']['Accept'] = 'application/json'
+        if osprofiler_web:
+            kwargs['headers'].update(osprofiler_web.get_trace_id_headers())
         if 'body' in kwargs:
             kwargs['headers']['Content-Type'] = 'application/json'
             kwargs['data'] = json.dumps(kwargs['body'])
@@ -326,10 +333,10 @@ class HTTPClient(TroveClientMixin):
         auth_url = self.auth_url
         if self.version == "v2.0":
             while auth_url:
-                if "TROVE_RAX_AUTH" in os.environ:
-                    auth_url = self._rax_auth(auth_url)
-                else:
+                if not self.auth_system or self.auth_system == 'keystone':
                     auth_url = self._v2_auth(auth_url)
+                else:
+                    auth_url = self._plugin_auth(auth_url)
 
             # Are we acting on behalf of another user via an
             # existing token? If so, our actual endpoints may
@@ -356,6 +363,9 @@ class HTTPClient(TroveClientMixin):
         # Allows for setting an endpoint not defined in the catalog
         if self.bypass_url is not None and self.bypass_url != '':
             self.management_url = self.bypass_url
+
+    def _plugin_auth(self, auth_url):
+        return self.auth_plugin.authenticate(self, auth_url)
 
     def _v1_auth(self, url):
         if self.proxy_token:
@@ -393,16 +403,6 @@ class HTTPClient(TroveClientMixin):
 
         self._authenticate(url, body)
 
-    def _rax_auth(self, url):
-        """Authenticate against the Rackspace auth service."""
-        body = {"auth": {
-                "RAX-KSKEY:apiKeyCredentials": {
-                    "username": self.user,
-                    "apiKey": self.password,
-                    "tenantName": self.projectid}}}
-
-        self._authenticate(url, body)
-
     def _authenticate(self, url, body):
         """Authenticate and extract the service catalog."""
         token_url = url + "/tokens"
@@ -419,19 +419,21 @@ class HTTPClient(TroveClientMixin):
 
 class SessionClient(adapter.LegacyJsonAdapter, TroveClientMixin):
 
-    def __init__(self, session, auth, service_type=None, service_name=None,
-                 region_name=None, endpoint_type='publicURL',
-                 database_service_name=None, endpoint_override=None):
-        self.endpoint_type = endpoint_type
-        self.database_service_name = database_service_name
-        self.endpoint_override = endpoint_override
+    def __init__(self, session, auth, **kwargs):
+        self.database_service_name = kwargs.pop('database_service_name', None)
+
         super(SessionClient, self).__init__(session=session,
                                             auth=auth,
-                                            interface=endpoint_type,
-                                            service_type=service_type,
-                                            service_name=service_name,
-                                            region_name=region_name)
-        self.management_url = self._get_endpoint_url()
+                                            **kwargs)
+
+        # FIXME(jamielennox): this is going to cause an authentication request
+        # on client init. This is different to how the other clients work.
+        endpoint = self.get_endpoint()
+
+        if not endpoint:
+            raise exceptions.EndpointNotFound()
+
+        self.management_url = endpoint.rstrip('/')
 
     def request(self, url, method, **kwargs):
         raise_exc = kwargs.pop('raise_exc', True)
@@ -445,16 +447,6 @@ class SessionClient(adapter.LegacyJsonAdapter, TroveClientMixin):
 
         return resp, body
 
-    def _get_endpoint_url(self):
-        endpoint_url = self.session.get_endpoint(
-            self.auth, interface=self.endpoint_type,
-            service_type=self.service_type)
-
-        if not endpoint_url:
-            raise exceptions.EndpointNotFound
-
-        return endpoint_url.rstrip('/')
-
 
 def _construct_http_client(username=None, password=None, project_id=None,
                            auth_url=None, insecure=False, timeout=None,
@@ -467,37 +459,42 @@ def _construct_http_client(username=None, password=None, project_id=None,
                            auth_system='keystone', auth_plugin=None,
                            cacert=None, bypass_url=None, tenant_id=None,
                            session=None,
-                           auth=None):
+                           **kwargs):
     if session:
+        try:
+            kwargs.setdefault('interface', endpoint_type)
+        except KeyError:
+            pass
+
         return SessionClient(session=session,
-                             auth=auth,
                              service_type=service_type,
                              service_name=service_name,
                              region_name=region_name,
-                             endpoint_type=endpoint_type,
-                             database_service_name=database_service_name)
-
-    return HTTPClient(username,
-                      password,
-                      projectid=project_id,
-                      auth_url=auth_url,
-                      insecure=insecure,
-                      timeout=timeout,
-                      tenant_id=tenant_id,
-                      proxy_token=proxy_token,
-                      proxy_tenant_id=proxy_tenant_id,
-                      region_name=region_name,
-                      endpoint_type=endpoint_type,
-                      service_type=service_type,
-                      service_name=service_name,
-                      database_service_name=database_service_name,
-                      retries=retries,
-                      http_log_debug=http_log_debug,
-                      cacert=cacert,
-                      bypass_url=bypass_url,
-                      auth_system=auth_system,
-                      auth_plugin=auth_plugin,
-                      )
+                             database_service_name=database_service_name,
+                             connect_retries=retries,
+                             **kwargs)
+    else:
+        return HTTPClient(username,
+                          password,
+                          projectid=project_id,
+                          auth_url=auth_url,
+                          insecure=insecure,
+                          timeout=timeout,
+                          tenant_id=tenant_id,
+                          proxy_token=proxy_token,
+                          proxy_tenant_id=proxy_tenant_id,
+                          region_name=region_name,
+                          endpoint_type=endpoint_type,
+                          service_type=service_type,
+                          service_name=service_name,
+                          database_service_name=database_service_name,
+                          retries=retries,
+                          http_log_debug=http_log_debug,
+                          cacert=cacert,
+                          bypass_url=bypass_url,
+                          auth_system=auth_system,
+                          auth_plugin=auth_plugin,
+                          )
 
 
 def get_version_map():
