@@ -38,8 +38,8 @@ from keystoneclient.auth.identity.generic import token
 from keystoneclient.auth.identity import v3 as identity
 from keystoneclient import session as ks_session
 
-from oslo.utils import encodeutils
-from oslo.utils import importutils
+from oslo_utils import encodeutils
+from oslo_utils import importutils
 
 import troveclient
 import troveclient.auth_plugin
@@ -436,9 +436,9 @@ class OpenStackTroveShell(object):
         # V3 stuff
         project_info_provided = (self.options.os_tenant_name or
                                  self.options.os_tenant_id or
-                                (self.options.os_project_name and
-                                 (self.options.os_project_domain_name or
-                                  self.options.os_project_domain_id)) or
+                                 (self.options.os_project_name and
+                                  (self.options.os_project_domain_name or
+                                   self.options.os_project_domain_id)) or
                                  self.options.os_project_id)
 
         if (not project_info_provided):
