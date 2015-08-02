@@ -1,3 +1,10 @@
+python-troveclient (1.2.0-2) experimental; urgency=medium
+
+  * Added Python 3 support.
+  * Rewrote the unit test commands in debian/rules.
+
+ -- Thomas Goirand <zigo@debian.org>  Sun, 02 Aug 2015 11:58:55 +0200
+
 python-troveclient (1.2.0-1) experimental; urgency=medium
 
   * New upstream release.
