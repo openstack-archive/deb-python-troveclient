@@ -19,10 +19,12 @@ override_dh_install:
 		python$$pyvers setup.py install --install-layout=deb \
 			--root $(CURDIR)/debian/python-troveclient ; \
 	done
-	set -e && for pyvers in $(PYTHON3S); do \
+	set -e ; for pyvers in $(PYTHON3S); do \
 		python$$pyvers setup.py install --install-layout=deb \
 			--root $(CURDIR)/debian/python3-troveclient ; \
 	done
+	mv $(CURDIR)/debian/python-troveclient/usr/bin/trove $(CURDIR)/debian/python-troveclient/usr/bin/python2-trove
+	mv $(CURDIR)/debian/python3-troveclient/usr/bin/trove $(CURDIR)/debian/python3-troveclient/usr/bin/python3-trove
 
 override_dh_auto_test:
 ifeq (,$(findstring nocheck, $(DEB_BUILD_OPTIONS)))
