@@ -1,6 +1,7 @@
 python-troveclient (1.2.0-1) experimental; urgency=medium
 
   * New upstream release.
+  * Fixed (build-)depends for this release.
 
  -- Thomas Goirand <zigo@debian.org>  Sun, 02 Aug 2015 11:50:58 +0200
 
