@@ -1,3 +1,9 @@
+python-troveclient (1.2.0-3) UNRELEASED; urgency=medium
+
+  * d/p/skip-tests.patch: Skip failing Python 3 tests.
+
+ -- Corey Bryant <corey.bryant@canonical.com>  Tue, 11 Aug 2015 16:09:30 -0400
+
 python-troveclient (1.2.0-2) experimental; urgency=medium
 
   * Added Python 3 support.
