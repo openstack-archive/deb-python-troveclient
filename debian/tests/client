@@ -1,0 +1,16 @@
+#!/bin/bash
+#-------------------------
+# Testing client utilities
+#-------------------------
+set -e
+
+HELP_CLIENTS=('trove')
+for client in "${HELP_CLIENTS[@]}"; do
+    if ! $client -h 2>&1 > /dev/null; then
+        echo "ERROR, ${client} did not run"
+        exit 1
+    else
+        echo "OK: ${client} ran"
+    fi
+done
+exit 0

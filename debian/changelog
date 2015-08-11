@@ -1,6 +1,8 @@
 python-troveclient (1.2.0-3) UNRELEASED; urgency=medium
 
   * d/p/skip-tests.patch: Skip failing Python 3 tests.
+  * Converge Ubuntu and Debian package:
+    - d/tests/*: Add DEP 8 tests from Ubuntu.
 
  -- Corey Bryant <corey.bryant@canonical.com>  Tue, 11 Aug 2015 16:09:30 -0400
 

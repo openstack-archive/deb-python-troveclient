@@ -44,6 +44,7 @@ Standards-Version: 3.9.6
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/python-troveclient.git;a=summary
 Vcs-Git: git://anonscm.debian.org/openstack/python-troveclient.git
 Homepage: http://www.openstack.org
+XS-Testsuite: autopkgtest
 
 Package: python-troveclient
 Architecture: all
