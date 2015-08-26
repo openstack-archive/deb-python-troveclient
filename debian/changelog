@@ -1,3 +1,9 @@
+python-troveclient (1:1.2.0-3) experimental; urgency=medium
+
+  * Add epoch to version to align with Ubuntu.
+
+ -- Corey Bryant <corey.bryant@canonical.com>  Wed, 26 Aug 2015 15:56:07 -0400
+
 python-troveclient (1.2.0-3) experimental; urgency=medium
 
   * Converge Ubuntu and Debian package:
