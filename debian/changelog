@@ -5,7 +5,7 @@ python-troveclient (1:1.3.0-1) UNRELEASED; urgency=medium
 
  -- Corey Bryant <corey.bryant@canonical.com>  Thu, 24 Sep 2015 15:41:28 -0400
 
-python-troveclient (1:1.2.0-3) experimental; urgency=medium
+python-troveclient (1:1.2.0-4) experimental; urgency=medium
 
   * Add epoch to version to align with Ubuntu.
 
