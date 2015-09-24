@@ -19,6 +19,9 @@ from __future__ import print_function
 import sys
 import time
 
+INSTANCE_ERROR = ("Instance argument(s) must be of the form --instance "
+                  "<flavor=flavor_name_or_id, volume=volume>")
+
 try:
     import simplejson as json
 except ImportError:
@@ -90,11 +93,26 @@ def _print_object(obj):
 
     # Fallback to str_id for flavors, where necessary
     if hasattr(obj, 'str_id'):
-        if hasattr(obj, 'id') and not obj.id:
-            obj._info['id'] = obj.str_id
+        obj._info['id'] = obj.id
         del(obj._info['str_id'])
 
     utils.print_dict(obj._info)
+
+
+def _find_instance_or_cluster(cs, instance_or_cluster):
+    """Returns an instance or cluster, found by id, along with the type of
+    resource, instance or cluster, that was found.
+    Raises CommandError if none is found.
+    """
+    try:
+        return _find_instance(cs, instance_or_cluster), 'instance'
+    except exceptions.CommandError:
+        try:
+            return _find_cluster(cs, instance_or_cluster), 'cluster'
+        except Exception:
+            raise exceptions.CommandError(
+                "No instance or cluster with a name or ID of '%s' exists."
+                % instance_or_cluster)
 
 
 def _find_instance(cs, instance):
@@ -132,9 +150,8 @@ def do_flavor_list(cs, args):
     elif not args.datastore_type and not args.datastore_version_id:
         flavors = cs.flavors.list()
     else:
-        err_msg = ("Specify both <datastore_type> and <datastore_version_id>"
-                   " to list datastore version associated flavors.")
-        raise exceptions.CommandError(err_msg)
+        raise exceptions.MissingArgs(['datastore_type',
+                                      'datastore_version_id'])
 
     # Fallback to str_id where necessary.
     _flavors = []
@@ -251,6 +268,58 @@ def do_cluster_instances(cs, args):
         obj_is_dict=True)
 
 
+@utils.arg('--instance',
+           metavar="<name=name,flavor=flavor_name_or_id,volume=volume>",
+           action='append',
+           dest='instances',
+           default=[],
+           help="Add an instance to the cluster. Specify "
+                "multiple times to create multiple instances.")
+@utils.arg('cluster', metavar='<cluster>', help='ID or name of the cluster.')
+@utils.service_type('database')
+def do_cluster_grow(cs, args):
+    """Adds more instances to a cluster."""
+    cluster = _find_cluster(cs, args.cluster)
+    instances = []
+    for instance_str in args.instances:
+        instance_info = {}
+        for z in instance_str.split(","):
+            for (k, v) in [z.split("=", 1)[:2]]:
+                if k == "name":
+                    instance_info[k] = v
+                elif k == "flavor":
+                    flavor_id = _find_flavor(cs, v).id
+                    instance_info["flavorRef"] = str(flavor_id)
+                elif k == "volume":
+                    instance_info["volume"] = {"size": v}
+                else:
+                    instance_info[k] = v
+        if not instance_info.get('flavorRef'):
+            raise exceptions.CommandError(
+                'flavor is required. '
+                'Instance arguments must be of the form '
+                '--instance <flavor=flavor_name_or_id,volume=volume,data=data>'
+            )
+        instances.append(instance_info)
+    cs.clusters.grow(cluster, instances=instances)
+
+
+@utils.arg('cluster', metavar='<cluster>', help='ID or name of the cluster.')
+@utils.arg('instances',
+           nargs='+',
+           metavar='<instance>',
+           default=[],
+           help="Drop instance(s) from the cluster. Specify "
+                "multiple ids to drop multiple instances.")
+@utils.service_type('database')
+def do_cluster_shrink(cs, args):
+    """Drops instances from a cluster."""
+    cluster = _find_cluster(cs, args.cluster)
+    instances = [{'id': _find_instance(cs, instance).id}
+                 for instance in args.instances]
+    cs.clusters.shrink(cluster, instances=instances)
+
+
 @utils.arg('instance', metavar='<instance>',
            help='ID or name  of the instance.')
 @utils.service_type('database')
@@ -260,11 +329,12 @@ def do_delete(cs, args):
     cs.instances.delete(instance)
 
 
-@utils.arg('cluster', metavar='<cluster>', help='ID of the cluster.')
+@utils.arg('cluster', metavar='<cluster>', help='ID or name of the cluster.')
 @utils.service_type('database')
 def do_cluster_delete(cs, args):
     """Deletes a cluster."""
-    cs.clusters.delete(args.cluster)
+    cluster = _find_cluster(cs, args.cluster)
+    cs.clusters.delete(cluster)
 
 
 @utils.arg('instance',
@@ -309,9 +379,9 @@ def do_update(cs, args):
            default=None,
            help="Size of the instance disk volume in GB. "
                 "Required when volume support is enabled.")
-@utils.arg('flavor_id',
-           metavar='<flavor_id>',
-           help='Flavor of the instance.')
+@utils.arg('flavor',
+           metavar='<flavor>',
+           help='Flavor ID or name of the instance.')
 @utils.arg('--databases', metavar='<databases>',
            help='Optional list of databases.',
            nargs="+", default=[])
@@ -364,6 +434,7 @@ def do_create(cs, args):
     """Creates a new instance."""
     volume = None
     replica_of_instance = None
+    flavor_id = _find_flavor(cs, args.flavor).id
     if args.size:
         volume = {"size": args.size}
     restore_point = None
@@ -383,11 +454,11 @@ def do_create(cs, args):
                        "the form --nic <net-id=net-uuid,v4-fixed-ip=ip-addr,"
                        "port-id=port-uuid>, with at minimum net-id or port-id "
                        "(but not both) specified." % nic_str)
-            raise exceptions.CommandError(err_msg)
+            raise exceptions.ValidationError(err_msg)
         nics.append(nic_info)
 
     instance = cs.instances.create(args.name,
-                                   args.flavor_id,
+                                   flavor_id,
                                    volume=volume,
                                    databases=databases,
                                    users=users,
@@ -413,7 +484,7 @@ def do_create(cs, args):
            metavar='<datastore_version>',
            help='A datastore version name or UUID.')
 @utils.arg('--instance',
-           metavar="<flavor_id=flavor_id,volume=volume>",
+           metavar="<flavor=flavor_name_or_id,volume=volume>",
            action='append',
            dest='instances',
            default=[],
@@ -427,18 +498,21 @@ def do_cluster_create(cs, args):
         instance_info = {}
         for z in instance_str.split(","):
             for (k, v) in [z.split("=", 1)[:2]]:
-                if k == "flavor_id":
-                    instance_info["flavorRef"] = v
+                if k == "flavor":
+                    flavor_id = _find_flavor(cs, v).id
+                    instance_info["flavorRef"] = str(flavor_id)
                 elif k == "volume":
                     instance_info["volume"] = {"size": v}
                 else:
                     instance_info[k] = v
         if not instance_info.get('flavorRef'):
-            err_msg = ("flavor_id is required. Instance arguments must be "
-                       "of the form --instance <flavor_id=flavor_id,"
-                       "volume=volume>.")
-            raise exceptions.CommandError(err_msg)
+            err_msg = ("flavor is required. %s." % INSTANCE_ERROR)
+            raise exceptions.ValidationError(err_msg)
         instances.append(instance_info)
+
+    if len(instances) == 0:
+        raise exceptions.MissingArgs(['instance'])
+
     cluster = cs.clusters.create(args.name,
                                  args.datastore,
                                  args.datastore_version,
@@ -456,27 +530,15 @@ def do_cluster_create(cs, args):
            metavar='<instance>',
            type=str,
            help='ID or name of the instance.')
-@utils.arg('flavor_id',
-           metavar='<flavor_id>',
-           help='New flavor of the instance.')
-@utils.service_type('database')
-def do_resize_flavor(cs, args):
-    """[DEPRECATED] Please use resize-instance instead."""
-    do_resize_instance(cs, args)
-
-
-@utils.arg('instance',
-           metavar='<instance>',
-           type=str,
-           help='ID or name of the instance.')
-@utils.arg('flavor_id',
-           metavar='<flavor_id>',
+@utils.arg('flavor',
+           metavar='<flavor>',
            help='New flavor of the instance.')
 @utils.service_type('database')
 def do_resize_instance(cs, args):
     """Resizes an instance with a new flavor."""
     instance = _find_instance(cs, args.instance)
-    cs.instances.resize_instance(instance, args.flavor_id)
+    flavor_id = _find_flavor(cs, args.flavor).id
+    cs.instances.resize_instance(instance, flavor_id)
 
 
 @utils.arg('instance',
@@ -553,11 +615,16 @@ def do_backup_show(cs, args):
 @utils.arg('--limit', metavar='<limit>',
            default=None,
            help='Return up to N number of the most recent backups.')
+@utils.arg('--marker', metavar='<ID>', type=str, default=None,
+           help='Begin displaying the results for IDs greater than the '
+                'specified marker. When used with --limit, set this to '
+                'the last ID displayed in the previous run.')
 @utils.service_type('database')
 def do_backup_list_instance(cs, args):
     """Lists available backups for an instance."""
     instance = _find_instance(cs, args.instance)
-    wrapper = cs.instances.backups(instance, limit=args.limit)
+    wrapper = cs.instances.backups(instance, limit=args.limit,
+                                   marker=args.marker)
     backups = wrapper.items
     while wrapper.next and not args.limit:
         wrapper = cs.instances.backups(instance, marker=wrapper.next)
@@ -570,13 +637,18 @@ def do_backup_list_instance(cs, args):
 @utils.arg('--limit', metavar='<limit>',
            default=None,
            help='Return up to N number of the most recent backups.')
+@utils.arg('--marker', metavar='<ID>', type=str, default=None,
+           help='Begin displaying the results for IDs greater than the '
+                'specified marker. When used with --limit, set this to '
+                'the last ID displayed in the previous run.')
 @utils.arg('--datastore', metavar='<datastore>',
            default=None,
            help='Name or ID of the datastore to list backups for.')
 @utils.service_type('database')
 def do_backup_list(cs, args):
     """Lists available backups."""
-    wrapper = cs.backups.list(limit=args.limit, datastore=args.datastore)
+    wrapper = cs.backups.list(limit=args.limit, datastore=args.datastore,
+                              marker=args.marker)
     backups = wrapper.items
     while wrapper.next and not args.limit:
         wrapper = cs.backups.list(marker=wrapper.next)
@@ -834,23 +906,37 @@ def do_limit_list(cs, args):
 
 # Root related commands
 
-@utils.arg('instance', metavar='<instance>',
-           help='ID or name of the instance.')
+@utils.arg('instance_or_cluster', metavar='<instance_or_cluster>',
+           help='ID or name of the instance or cluster.')
+@utils.arg('--root_password',
+           metavar='<root_password>',
+           default=None,
+           help='Root password to set.')
 @utils.service_type('database')
 def do_root_enable(cs, args):
     """Enables root for an instance and resets if already exists."""
-    instance = _find_instance(cs, args.instance)
-    root = cs.root.create(instance)
+    instance_or_cluster, resource_type = _find_instance_or_cluster(
+        cs, args.instance_or_cluster)
+    if resource_type == 'instance':
+        root = cs.root.create_instance_root(instance_or_cluster,
+                                            args.root_password)
+    else:
+        root = cs.root.create_cluster_root(instance_or_cluster,
+                                           args.root_password)
     utils.print_dict({'name': root[0], 'password': root[1]})
 
 
-@utils.arg('instance', metavar='<instance>',
-           help='ID or name of the instance.')
+@utils.arg('instance_or_cluster', metavar='<instance_or_cluster>',
+           help='ID or name of the instance or cluster.')
 @utils.service_type('database')
 def do_root_show(cs, args):
-    """Gets status if root was ever enabled for an instance."""
-    instance = _find_instance(cs, args.instance)
-    root = cs.root.is_root_enabled(instance)
+    """Gets status if root was ever enabled for an instance or cluster."""
+    instance_or_cluster, resource_type = _find_instance_or_cluster(
+        cs, args.instance_or_cluster)
+    if resource_type == 'instance':
+        root = cs.root.is_instance_root_enabled(instance_or_cluster)
+    else:
+        root = cs.root.is_cluster_root_enabled(instance_or_cluster)
     utils.print_dict({'is_root_enabled': root.rootEnabled})
 
 
@@ -869,7 +955,7 @@ def do_secgroup_list(cs, args):
 
 
 @utils.arg('security_group', metavar='<security_group>',
-           help='Security group ID')
+           help='Security group ID.')
 @utils.service_type('database')
 def do_secgroup_show(cs, args):
     """Shows details of a security group."""
@@ -1146,7 +1232,7 @@ def do_configuration_update(cs, args):
                              args.description)
 
 
-@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance')
+@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance.')
 @utils.service_type('database')
 def do_metadata_list(cs, args):
     """Shows all metadata for instance <id>."""
@@ -1154,8 +1240,8 @@ def do_metadata_list(cs, args):
     _print_object(result)
 
 
-@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance')
-@utils.arg('key', metavar='<key>', help='key to display')
+@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance.')
+@utils.arg('key', metavar='<key>', help='Key to display.')
 @utils.service_type('database')
 def do_metadata_show(cs, args):
     """Shows metadata entry for key <key> and instance <id>."""
@@ -1163,29 +1249,29 @@ def do_metadata_show(cs, args):
     _print_object(result)
 
 
-@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance')
-@utils.arg('key', metavar='<key>', help='Key to replace')
+@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance.')
+@utils.arg('key', metavar='<key>', help='Key to replace.')
 @utils.arg('value', metavar='<value>',
-           help='New value to assign to <key>')
+           help='New value to assign to <key>.')
 @utils.service_type('database')
 def do_metadata_edit(cs, args):
     """Replaces metadata value with a new one, this is non-destructive."""
     cs.metadata.edit(args.instance_id, args.key, args.value)
 
 
-@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance')
-@utils.arg('key', metavar='<key>', help='Key to update')
-@utils.arg('newkey', metavar='<newkey>', help='New key')
-@utils.arg('value', metavar='<value>', help='Value to assign to <newkey>')
+@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance.')
+@utils.arg('key', metavar='<key>', help='Key to update.')
+@utils.arg('newkey', metavar='<newkey>', help='New key.')
+@utils.arg('value', metavar='<value>', help='Value to assign to <newkey>.')
 @utils.service_type('database')
 def do_metadata_update(cs, args):
     """Updates metadata, this is destructive."""
     cs.metadata.update(args.instance_id, args.key, args.newkey, args.value)
 
 
-@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance')
-@utils.arg('key', metavar='<key>', help='Key for assignment')
-@utils.arg('value', metavar='<value>', help='Value to assign to <key>')
+@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance.')
+@utils.arg('key', metavar='<key>', help='Key for assignment.')
+@utils.arg('value', metavar='<value>', help='Value to assign to <key>.')
 @utils.service_type('database')
 def do_metadata_create(cs, args):
     """Creates metadata in the database for instance <id>."""
@@ -1193,8 +1279,8 @@ def do_metadata_create(cs, args):
     _print_object(result)
 
 
-@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance')
-@utils.arg('key', metavar='<key>', help='Metadata key to delete')
+@utils.arg('instance_id', metavar='<instance_id>', help='UUID for instance.')
+@utils.arg('key', metavar='<key>', help='Metadata key to delete.')
 @utils.service_type('database')
 def do_metadata_delete(cs, args):
     """Deletes metadata for instance <id>."""
