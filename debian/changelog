@@ -1,6 +1,7 @@
 python-troveclient (1:1.3.0-1) UNRELEASED; urgency=medium
 
   * New upstream release.
+  * d/control: Align dependencies and versions with upstream.
 
  -- Corey Bryant <corey.bryant@canonical.com>  Thu, 24 Sep 2015 15:41:28 -0400
 
