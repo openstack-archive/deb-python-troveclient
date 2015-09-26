@@ -1,4 +1,4 @@
-python-troveclient (1:1.3.0-1) UNRELEASED; urgency=medium
+python-troveclient (1:1.3.0-1) experimental; urgency=medium
 
   * New upstream release.
   * d/control: Align dependencies and versions with upstream.
