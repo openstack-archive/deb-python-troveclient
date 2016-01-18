@@ -1,4 +1,4 @@
-python-troveclient (1:1.4.0-1) UNRELEASED; urgency=medium
+python-troveclient (1:1.4.0-1) experimental; urgency=medium
 
   [ David Della Vecchia ]
   * New upstream release.
