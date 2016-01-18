@@ -2,14 +2,15 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: python-troveclient
 Source: git://github.com/openstack/python-troveclient.git
 
-Files: debian/*
-Copyright: 2012 Thomas Goirand <zigo@debian.org>
-License: Apache-2
-
 Files: *
 Copyright: (c) 2011-2013, OpenStack LLC, OpenStack foundation
            (c) 2012-2013, Hewlett-Packard Development Company, L.P.
            (c) 2012-2013, Rackspace
+License: Apache-2
+
+Files: debian/*
+Copyright: (c) 2012-2016, Thomas Goirand <zigo@debian.org>
+           (c) 2016, Corey Bryant <corey.bryant@canonical.com>
 License: Apache-2
 
 License: Apache-2

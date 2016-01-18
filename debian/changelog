@@ -1,5 +1,8 @@
 python-troveclient (1:1.4.0-1) experimental; urgency=medium
 
+  [ Thomas Goirand ]
+  * Fixed debian/copyright ordering.
+
   [ David Della Vecchia ]
   * New upstream release.
   * d/control: Align requirements with upstream.
