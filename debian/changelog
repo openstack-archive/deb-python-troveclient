@@ -1,6 +1,7 @@
 python-troveclient (1:2.0.0-1) UNRELEASED; urgency=medium
 
-  * New upstream release. 
+  * New upstream release.
+  * d/control: Align requirements with upstream.
 
  -- David Della Vecchia <ddv@canonical.com>  Sun, 21 Feb 2016 15:34:14 -0500
 
