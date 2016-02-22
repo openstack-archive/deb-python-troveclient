@@ -1,9 +1,13 @@
 python-troveclient (1:2.0.0-1) UNRELEASED; urgency=medium
 
+  [ David Della Vecchia ]
   * New upstream release.
   * d/control: Align requirements with upstream.
 
- -- David Della Vecchia <ddv@canonical.com>  Sun, 21 Feb 2016 15:34:14 -0500
+  [ Corey Bryant ]
+  * d/control: Update uploaders.
+
+ -- Corey Bryant <corey.bryant@canonical.com>  Mon, 22 Feb 2016 13:10:14 -0500
 
 python-troveclient (1:1.4.0-1) experimental; urgency=medium
 
