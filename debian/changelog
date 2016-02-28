@@ -7,6 +7,9 @@ python-troveclient (1:2.0.0-1) UNRELEASED; urgency=medium
   [ Corey Bryant ]
   * d/control: Update uploaders.
 
+  [ Ondřej Nový ]
+  * Fixed VCS URLs (https).
+
  -- Corey Bryant <corey.bryant@canonical.com>  Mon, 22 Feb 2016 13:10:14 -0500
 
 python-troveclient (1:1.4.0-1) experimental; urgency=medium
