@@ -48,7 +48,7 @@ Build-Depends-Indep: python-babel,
                      python3-testtools (>= 1.4.0),
                      subunit (>= 1.1.0),
                      testrepository,
-Standards-Version: 3.9.7
+Standards-Version: 3.9.8
 Vcs-Browser: https://anonscm.debian.org/cgit/openstack/python-troveclient.git/
 Vcs-Git: https://anonscm.debian.org/git/openstack/python-troveclient.git
 Homepage: http://www.openstack.org
