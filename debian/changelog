@@ -6,6 +6,7 @@ python-troveclient (1:2.2.0-1) UNRELEASED; urgency=medium
 
   [ Corey Bryant ]
   * New upstream release.
+  * d/gbp.conf: Update branch for Newton.
 
  -- Corey Bryant <corey.bryant@canonical.com>  Thu, 02 Jun 2016 10:24:05 -0400
 
