@@ -1,9 +1,13 @@
-python-troveclient (1:2.1.1-2) UNRELEASED; urgency=medium
+python-troveclient (1:2.2.0-1) UNRELEASED; urgency=medium
 
+  [ Ondřej Nový ]
   * Standards-Version is 3.9.8 now (no change)
   * d/copyright: Changed source URL to https protocol
 
- -- Ondřej Nový <novy@ondrej.org>  Sat, 09 Apr 2016 19:31:37 +0200
+  [ Corey Bryant ]
+  * New upstream release.
+
+ -- Corey Bryant <corey.bryant@canonical.com>  Thu, 02 Jun 2016 10:24:05 -0400
 
 python-troveclient (1:2.1.1-1) experimental; urgency=medium
 
