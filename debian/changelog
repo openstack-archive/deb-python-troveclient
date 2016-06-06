@@ -1,4 +1,4 @@
-python-troveclient (1:2.2.0-1) UNRELEASED; urgency=medium
+python-troveclient (1:2.2.0-1) experimental; urgency=medium
 
   [ Ondřej Nový ]
   * Standards-Version is 3.9.8 now (no change)
@@ -9,7 +9,13 @@ python-troveclient (1:2.2.0-1) UNRELEASED; urgency=medium
   * d/gbp.conf: Update branch for Newton.
   * d/control: Align (Build-)Depends with upstream.
 
- -- Corey Bryant <corey.bryant@canonical.com>  Thu, 02 Jun 2016 10:24:05 -0400
+ -- Corey Bryant <corey.bryant@canonical.com>  Mon, 06 Jun 2016 10:38:50 +0000
+
+python-troveclient (1:2.1.1-2) unstable; urgency=medium
+
+  * Uploading to unstable.
+
+ -- Thomas Goirand <zigo@debian.org>  Mon, 04 Apr 2016 16:52:31 +0000
 
 python-troveclient (1:2.1.1-1) experimental; urgency=medium
 
