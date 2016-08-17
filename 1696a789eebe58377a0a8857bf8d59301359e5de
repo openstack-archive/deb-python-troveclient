@@ -1,0 +1,9 @@
+Code-Review+2: amrith <amrith@tesora.com>
+Code-Review+2: Craig Vyvial <cp16net@gmail.com>
+Workflow+1: Craig Vyvial <cp16net@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 22 Mar 2016 19:05:14 +0000
+Reviewed-on: https://review.openstack.org/294784
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master

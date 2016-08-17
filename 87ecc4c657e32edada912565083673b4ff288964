@@ -1,0 +1,9 @@
+Code-Review+2: mariam john <mariamj@us.ibm.com>
+Code-Review+2: Victoria Martinez de la Cruz <victoria@redhat.com>
+Workflow+1: Victoria Martinez de la Cruz <victoria@redhat.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 24 May 2016 22:56:47 +0000
+Reviewed-on: https://review.openstack.org/317331
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master

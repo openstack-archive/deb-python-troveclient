@@ -1,0 +1,9 @@
+Code-Review+2: mariam john <mariamj@us.ibm.com>
+Code-Review+2: amrith <amrith@tesora.com>
+Workflow+1: amrith <amrith@tesora.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 14 Apr 2016 17:00:27 +0000
+Reviewed-on: https://review.openstack.org/301270
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master
