@@ -33,14 +33,17 @@ REBOOT_HARD = 'HARD'
 
 class Instance(base.Resource):
     """An Instance is an opaque instance used to store Database instances."""
-    def __repr__(self):
-        return "<Instance: %s>" % self.name
 
     def list_databases(self):
         return self.manager.databases.list(self)
 
     def delete(self):
         """Delete the instance."""
+        self.manager.delete(self)
+
+    def force_delete(self):
+        """Force delete the instance"""
+        self.manager.reset_status(self)
         self.manager.delete(self)
 
     def restart(self):
@@ -89,7 +92,7 @@ class Instances(base.ManagerWithFind):
                restorePoint=None, availability_zone=None, datastore=None,
                datastore_version=None, nics=None, configuration=None,
                replica_of=None, slave_of=None, replica_count=None,
-               modules=None):
+               modules=None, locality=None):
         """Create (boot) a new instance."""
 
         body = {"instance": {
@@ -116,7 +119,7 @@ class Instances(base.ManagerWithFind):
         if nics:
             body["instance"]["nics"] = nics
         if configuration:
-            body["instance"]["configuration"] = configuration
+            body["instance"]["configuration"] = base.getid(configuration)
         if replica_of or slave_of:
             if slave_of:
                 warnings.warn(_LW("The 'slave_of' argument is deprecated in "
@@ -129,6 +132,8 @@ class Instances(base.ManagerWithFind):
             body["instance"]["replica_count"] = replica_count
         if modules:
             body["instance"]["modules"] = self._get_module_list(modules)
+        if locality:
+            body["instance"]["locality"] = locality
 
         return self._create("/instances", body, "instance")
 
@@ -138,7 +143,7 @@ class Instances(base.ManagerWithFind):
             }
         }
         if configuration is not None:
-            body["instance"]["configuration"] = configuration
+            body["instance"]["configuration"] = base.getid(configuration)
         url = "/instances/%s" % base.getid(instance)
         resp, body = self.api.client.put(url, body=body)
         common.check_for_exceptions(resp, body, url)
@@ -155,13 +160,25 @@ class Instances(base.ManagerWithFind):
         if remove_configuration:
             body["instance"]["configuration"] = None
         if configuration is not None:
-            body["instance"]["configuration"] = configuration
+            body["instance"]["configuration"] = base.getid(configuration)
         if name is not None:
             body["instance"]["name"] = name
         if detach_replica_source:
             # NOTE(mriedem): We don't send slave_of since it was removed from
             # the trove API in mitaka.
             body["instance"]["replica_of"] = None
+
+        url = "/instances/%s" % base.getid(instance)
+        resp, body = self.api.client.patch(url, body=body)
+        common.check_for_exceptions(resp, body, url)
+
+    def upgrade(self, instance, datastore_version):
+        """Upgrades an instance with a new datastore version."""
+        body = {
+            "instance": {
+                "datastore_version": datastore_version
+            }
+        }
 
         url = "/instances/%s" % base.getid(instance)
         resp, body = self.api.client.patch(url, body=body)
@@ -186,6 +203,9 @@ class Instances(base.ManagerWithFind):
     def backups(self, instance, limit=None, marker=None):
         """Get the list of backups for a specific instance.
 
+        :param instance: instance for which to list backups
+        :param limit: max items to return
+        :param marker: marker start point
         :rtype: list of :class:`Backups`.
         """
         url = "/instances/%s/backups" % base.getid(instance)
@@ -199,6 +219,22 @@ class Instances(base.ManagerWithFind):
         url = "/instances/%s" % base.getid(instance)
         resp, body = self.api.client.delete(url)
         common.check_for_exceptions(resp, body, url)
+
+    def reset_status(self, instance):
+        """Reset the status of an instance.
+
+        :param instance: A reference to the instance
+        """
+        body = {'reset_status': {}}
+        self._action(instance, body)
+
+    def force_delete(self, instance):
+        """Force delete the specified instance.
+
+        :param instance: A reference to the instance to force delete
+        """
+        self.reset_status(instance)
+        self.delete(instance)
 
     def _action(self, instance, body):
         """Perform a server "action" -- reboot/rebuild/resize/etc."""

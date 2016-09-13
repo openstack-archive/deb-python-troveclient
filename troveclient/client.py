@@ -24,16 +24,13 @@ from __future__ import print_function
 import logging
 import requests
 
-from keystoneclient import adapter
+from keystoneauth1 import adapter
 from oslo_utils import importutils
 from troveclient import exceptions
 from troveclient.openstack.common.apiclient import client
 from troveclient import service_catalog
 
-try:
-    import urlparse
-except ImportError:
-    import urllib.parse as urlparse
+import six.moves.urllib.parse as urlparse
 
 try:
     import eventlet as sleep_lib

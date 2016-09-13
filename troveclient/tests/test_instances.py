@@ -39,10 +39,6 @@ class InstanceTest(testtools.TestCase):
         super(InstanceTest, self).tearDown()
         instances.Instance.__init__ = self.orig__init
 
-    def test___repr__(self):
-        self.instance.name = "instance-1"
-        self.assertEqual('<Instance: instance-1>', self.instance.__repr__())
-
     def test_list_databases(self):
         db_list = ['database1', 'database2']
         self.instance.manager.databases = mock.Mock()
@@ -100,7 +96,9 @@ class InstancesTest(testtools.TestCase):
                                         datastore="datastore",
                                         datastore_version="datastore-version",
                                         nics=nics, slave_of='test',
-                                        modules=['mod_id'])
+                                        replica_count=4,
+                                        modules=['mod_id'],
+                                        locality='affinity')
         self.assertEqual("/instances", p)
         self.assertEqual("instance", i)
         self.assertEqual(['db1', 'db2'], b["instance"]["databases"])
@@ -118,6 +116,8 @@ class InstancesTest(testtools.TestCase):
         self.assertNotIn('slave_of', b['instance'])
         self.assertTrue(mock_warn.called)
         self.assertEqual([{'id': 'mod_id'}], b["instance"]["modules"])
+        self.assertEqual(4, b["instance"]["replica_count"])
+        self.assertEqual('affinity', b["instance"]["locality"])
 
     def test_list(self):
         page_mock = mock.Mock()
@@ -237,6 +237,16 @@ class InstancesTest(testtools.TestCase):
         self.instances.edit(self.instance_with_id, 123, 'name-1234', True)
         resp.status_code = 500
         self.assertRaises(Exception, self.instances.edit, 'instance1')
+
+    def test_upgrade(self):
+        resp = mock.Mock()
+        resp.status_code = 200
+        body = None
+        self.instances.api.client.patch = mock.Mock(return_value=(resp, body))
+        self.instances.upgrade(self.instance_with_id, "5.6")
+        resp.status_code = 500
+        self.assertRaises(Exception, self.instances.upgrade,
+                          'instance1')
 
     def test_configuration(self):
         def side_effect_func(path, inst):
