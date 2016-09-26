@@ -55,8 +55,8 @@ Build-Depends-Indep: python-babel (>= 2.3.4),
                      subunit (>= 1.1.0),
                      testrepository,
 Standards-Version: 3.9.8
-Vcs-Browser: https://git.openstack.org/cgit/openstack/deb-python-troveclient
-Vcs-Git: https://git.openstack.org/openstack/deb-python-troveclient
+Vcs-Browser: https://git.openstack.org/cgit/openstack/deb-python-troveclient?h=debian%2Fnewton
+Vcs-Git: https://git.openstack.org/openstack/deb-python-troveclient -b debian/newton
 Homepage: http://www.openstack.org
 XS-Testsuite: autopkgtest
 
