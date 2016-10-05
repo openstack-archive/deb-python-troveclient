@@ -7,8 +7,9 @@ python-troveclient (1:2.5.0-2) unstable; urgency=medium
   [ Thomas Goirand ]
   * Uploading to unstable.
   * Fixed oslotest EPOCH.
+  * Blacklist troveclient.tests.test_v1_shell.ShellTest.test_module_create.
 
- -- Ondřej Nový <onovy@debian.org>  Mon, 26 Sep 2016 19:15:50 +0200
+ -- Thomas Goirand <zigo@debian.org>  Wed, 05 Oct 2016 16:18:28 +0200
 
 python-troveclient (1:2.5.0-1) experimental; urgency=medium
 
