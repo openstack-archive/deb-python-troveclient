@@ -1,0 +1,9 @@
+Code-Review+2: amrith <amrith@tesora.com>
+Code-Review+2: Nikhil Manchanda <SlickNik@gmail.com>
+Workflow+1: Nikhil Manchanda <SlickNik@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 17 Oct 2016 12:04:06 +0000
+Reviewed-on: https://review.openstack.org/383386
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master
