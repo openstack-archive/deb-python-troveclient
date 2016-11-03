@@ -1,0 +1,11 @@
+Code-Review+1: venkatamahesh <Venkata.Kotha@infinite.com>
+Code-Review+2: amrith <amrith@tesora.com>
+Code-Review+1: Petr Malik <pmalik@tesora.com>
+Code-Review-1: liulei <liulei.gz@awcloud.com>
+Workflow+1: amrith <amrith@tesora.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 02 Nov 2016 10:44:23 +0000
+Reviewed-on: https://review.openstack.org/389459
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master
