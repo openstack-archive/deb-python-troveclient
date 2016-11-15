@@ -1,0 +1,11 @@
+Code-Review+2: Peter Stachowski <peter@tesora.com>
+Code-Review+1: Doug Hellmann <doug@doughellmann.com>
+Code-Review+2: amrith <amrith@tesora.com>
+Code-Review+2: mariam john <mariamj@us.ibm.com>
+Workflow+1: mariam john <mariamj@us.ibm.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 15 Nov 2016 00:54:26 +0000
+Reviewed-on: https://review.openstack.org/396267
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master
