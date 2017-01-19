@@ -1,0 +1,9 @@
+Code-Review+1: Petr Malik <pmalik@tesora.com>
+Code-Review+2: Peter Stachowski <peter@tesora.com>
+Workflow+1: Peter Stachowski <peter@tesora.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 18 Jan 2017 20:41:21 +0000
+Reviewed-on: https://review.openstack.org/420866
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master
