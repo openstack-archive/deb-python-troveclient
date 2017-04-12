@@ -1,0 +1,8 @@
+Code-Review+2: Amrith Kumar <amrith.kumar@gmail.com>
+Workflow+1: Amrith Kumar <amrith.kumar@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 12 Apr 2017 14:12:02 +0000
+Reviewed-on: https://review.openstack.org/456011
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master
