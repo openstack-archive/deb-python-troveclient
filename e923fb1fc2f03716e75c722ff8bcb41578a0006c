@@ -1,0 +1,10 @@
+Code-Review+2: Peter Stachowski <peter@tesora.com>
+Code-Review+1: jian.song <jian.song@easystack.cn>
+Code-Review+1: Petr Malik <pmalik@tesora.com>
+Workflow+1: Amrith Kumar <amrith.kumar@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Sat, 06 May 2017 15:48:27 +0000
+Reviewed-on: https://review.openstack.org/406394
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master
