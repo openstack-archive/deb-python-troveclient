@@ -1,0 +1,10 @@
+Code-Review+1: Trevor McCasland <TM2086@att.com>
+Code-Review+1: Andreas Jaeger <jaegerandi@gmail.com>
+Code-Review+2: Amrith Kumar <amrith.kumar@gmail.com>
+Workflow+1: Amrith Kumar <amrith.kumar@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 18 Jul 2017 19:02:04 +0000
+Reviewed-on: https://review.openstack.org/479078
+Project: openstack/deb-python-troveclient
+Branch: refs/heads/master
