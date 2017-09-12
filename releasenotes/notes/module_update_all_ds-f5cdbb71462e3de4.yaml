@@ -1,5 +1,0 @@
----
-fixes:
-    - Updating a module with all_datastores and
-      all_datastore_versions now works correctly.
-      Bug 1612430

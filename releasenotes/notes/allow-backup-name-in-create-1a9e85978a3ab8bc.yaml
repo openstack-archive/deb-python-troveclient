@@ -1,4 +1,0 @@
----
-fixes:
-  - Allow use of backup name in trove create
-    when restoring a backup.

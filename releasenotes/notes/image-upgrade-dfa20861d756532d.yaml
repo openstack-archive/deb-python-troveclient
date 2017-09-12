@@ -1,5 +1,0 @@
----
-features:
-  - Add a new trove upgrade CLI command and a new
-    Instances.upgrade python API method to implement
-    the new Instance Upgrade feature.
